@@ -1,0 +1,10 @@
+func test(string) {
+  port = 3000
+  callback = () -> {
+    print("Server is running on port 3000")
+  }
+  print(string)
+  createHTTPServer(port)
+}
+
+test("Hello World")
