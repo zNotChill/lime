@@ -23,7 +23,7 @@ kotlin {
     targets.withType<KotlinNativeTarget>().configureEach {
         binaries {
             executable {
-                entryPoint = "main"
+                entryPoint = "me.znotchill.lime.main"
             }
         }
     }
@@ -36,6 +36,7 @@ kotlin {
             implementation("io.ktor:ktor-network:${ktor_version}")
             implementation("io.ktor:ktor-network-tls:${ktor_version}")
             implementation("net.kyori:adventure-api:5.0.0")
+            implementation(kotlin("reflect"))
         }
     }
 }

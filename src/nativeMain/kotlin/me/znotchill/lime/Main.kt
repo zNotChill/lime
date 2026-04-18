@@ -1,21 +1,21 @@
+package me.znotchill.lime
+
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ULongVar
-import kotlinx.cinterop.UnsafeNumber
-import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.nativeHeap.alloc
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
-import packets.PacketRegistry
-import packets.registry.ChatPacket
-import packets.registry.HandshakePacket
-import kotlinx.cinterop.*
-import platform.zlib.*
+import me.znotchill.lime.events.DefaultEvents
+import me.znotchill.lime.generated.Protocol
+import me.znotchill.lime.packets.registry.clientbound.login.SetCompressionPacket
+import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
+import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
+import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
+import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
+import me.znotchill.lime.registries.PacketProtocolRegistry
+import platform.zlib.Z_OK
+import platform.zlib.compress
+import platform.zlib.uncompress
 
 val json = Json {
     encodeDefaults = true
@@ -26,10 +26,19 @@ fun main() = runBlocking {
     val serverSocket = aSocket(selectorManager).tcp().bind("0.0.0.0", 30067)
 
     val proxyScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    PacketProtocolRegistry.register(Protocol.protocol774)
+
     println("Native Proxy started on port 30067")
 
-    PacketRegistry.register(0x00) { HandshakePacket.decode(it) }
-    PacketRegistry.register(0x08) { ChatPacket.decode(it) }
+    HandshakePacket.init()
+    ChatPacket.init()
+    CommandPacket.init()
+    LoginStartPacket.init()
+
+    SetCompressionPacket.init()
+
+    DefaultEvents.register()
 
     while (true) {
         val socket = serverSocket.accept()

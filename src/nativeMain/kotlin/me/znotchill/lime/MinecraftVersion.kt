@@ -1,3 +1,5 @@
+package me.znotchill.lime
+
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
@@ -8,7 +10,7 @@ enum class MinecraftVersion(val protocol: Int) {
 }
 
 object MinecraftVersionSerializer : KSerializer<MinecraftVersion> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("MinecraftVersion", PrimitiveKind.INT)
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("me.znotchill.lime.MinecraftVersion", PrimitiveKind.INT)
 
     override fun serialize(encoder: Encoder, value: MinecraftVersion) {
         encoder.encodeInt(value.protocol)

@@ -1,6 +1,6 @@
-package packets.payloads
+package me.znotchill.lime.packets.payloads
 
-import MinecraftVersion
+import me.znotchill.lime.MinecraftVersion
 import kotlinx.serialization.Serializable
 
 @Serializable

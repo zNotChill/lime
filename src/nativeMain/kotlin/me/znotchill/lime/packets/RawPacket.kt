@@ -1,4 +1,4 @@
-package packets
+package me.znotchill.lime.packets
 
 import kotlinx.io.Source
 

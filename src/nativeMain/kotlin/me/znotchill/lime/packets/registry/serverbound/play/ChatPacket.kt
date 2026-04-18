@@ -1,13 +1,16 @@
-package packets.registry
+package me.znotchill.lime.packets.registry.serverbound.play
 
 import kotlinx.io.Sink
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
-import packets.MinecraftPacket
-import packets.readMcString
-import packets.readVarInt
-import packets.writeMcString
-import packets.writeVarInt
+import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.generated.Packet
+import me.znotchill.lime.packets.ClientPacket
+import me.znotchill.lime.packets.PacketRegistry
+import me.znotchill.lime.packets.readMcString
+import me.znotchill.lime.packets.readVarInt
+import me.znotchill.lime.packets.writeMcString
+import me.znotchill.lime.packets.writeVarInt
 
 class ChatPacket(
     val message: String,
@@ -17,10 +20,13 @@ class ChatPacket(
     val messageCount: Int,
     val acknowledged: ByteArray,
     val checksum: Byte,
-) : MinecraftPacket {
-    override val id = 0x08
+) : ClientPacket {
+    override val id = Packet.Serverbound.Play.ChatMessage
+    override val state = ConnectionState.PLAY
 
     companion object {
+        fun init() = PacketRegistry.register(ConnectionState.PLAY, 1, Packet.Serverbound.Play.ChatMessage, ::decode)
+
         fun decode(packet: Source): ChatPacket {
             val message = packet.readMcString()
             val timestamp = packet.readLong()

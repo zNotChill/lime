@@ -1,18 +1,24 @@
-package packets
+package me.znotchill.lime.packets
 
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.ByteWriteChannel
-import io.ktor.utils.io.core.writeFully
-import io.ktor.utils.io.readByte
-import io.ktor.utils.io.writeByte
-import io.ktor.utils.io.writeFully
+import io.ktor.utils.io.*
+import io.ktor.utils.io.core.*
 import kotlinx.io.Sink
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
+import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.generated.Identifiable
+import me.znotchill.lime.utils.MinecraftUUID
 
 interface MinecraftPacket {
-    val id: Int
+    val id: Identifiable
     fun encode(output: Sink)
+}
+
+interface ClientPacket : MinecraftPacket {
+    override val id: Identifiable
+    val state: ConnectionState
+
+    override fun encode(output: Sink)
 }
 
 suspend fun ByteReadChannel.readVarInt(): Int {
@@ -91,4 +97,13 @@ fun Sink.writeMcString(value: String) {
 fun Source.readMcString(): String {
     val length = this.readVarInt()
     return this.readByteArray(length).decodeToString()
+}
+
+fun Sink.writeUUID(uuid: MinecraftUUID) {
+    writeLong(uuid.mostSignificantBits)
+    writeLong(uuid.leastSignificantBits)
+}
+
+fun Source.readUUID(): MinecraftUUID {
+    return MinecraftUUID(readLong(), readLong())
 }

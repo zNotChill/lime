@@ -1,8 +1,15 @@
+package me.znotchill.lime
+
 import io.ktor.network.sockets.Socket
 import kotlinx.coroutines.CoroutineScope
+import me.znotchill.lime.utils.MinecraftUUID
 
 enum class ConnectionState {
-    HANDSHAKE, STATUS, LOGIN, PLAY
+    HANDSHAKE,
+    STATUS,
+    LOGIN,
+    PLAY,
+    CONFIGURATION
 }
 
 class MinecraftPlayer(
@@ -10,7 +17,8 @@ class MinecraftPlayer(
     var state: ConnectionState = ConnectionState.HANDSHAKE
 ) {
     var username: String? = null
-    var uuid: String? = null
+    var uuid: MinecraftUUID? = null
+    var protocol: Int = 0
     
     var remoteConnection: ClientConnection? = null
 
