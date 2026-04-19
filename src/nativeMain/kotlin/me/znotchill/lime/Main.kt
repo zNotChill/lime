@@ -15,6 +15,7 @@ import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
+import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
 import platform.zlib.Z_OK
 import platform.zlib.compress
@@ -41,6 +42,7 @@ fun main() = runBlocking {
     FinishConfigurationPacket.init()
     SystemChatPacket.init()
     CommandsPacket.init()
+    TabCompleteRequestPacket.init()
 
     SetCompressionPacket.init()
 

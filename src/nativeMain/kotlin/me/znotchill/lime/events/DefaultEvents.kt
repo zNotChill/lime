@@ -5,10 +5,13 @@ import me.znotchill.lime.commands.CommandManager
 import me.znotchill.lime.commands.SuggestionType
 import me.znotchill.lime.commands.command
 import me.znotchill.lime.packets.registry.clientbound.play.CommandsPacket
+import me.znotchill.lime.packets.registry.clientbound.play.Match
+import me.znotchill.lime.packets.registry.clientbound.play.TabCompleteResponsePacket
 import me.znotchill.lime.packets.registry.serverbound.configuration.FinishConfigurationPacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
+import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
 
 object DefaultEvents {
 
@@ -65,6 +68,22 @@ object DefaultEvents {
         PacketEventManager.register<ChatPacket> { event ->
             val msg = event.packet.message
             println("${event.player.username}: $msg")
+        }
+
+        PacketEventManager.register<TabCompleteRequestPacket> { event ->
+            event.cancel()
+            val suggestions = CommandManager.suggest(event.player, event.packet.text)
+            val input = event.packet.text
+            val lastSpace = input.lastIndexOf(' ')
+
+            event.player.clientConnection.sendPacket(
+                TabCompleteResponsePacket(
+                    transactionId = event.packet.transactionId,
+                    start = lastSpace + 1,
+                    length = input.length - lastSpace - 1,
+                    matches = suggestions.map { Match(it) }
+                )
+            )
         }
     }
 }
