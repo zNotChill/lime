@@ -39,14 +39,10 @@ class ClientConnection(
         val dynamicId = PacketProtocolRegistry.getId(protocol, state, 0, idName)
             ?: throw IllegalStateException("Packet $idName not found for version $protocol")
 
-        packetBuilder.writeVarInt(dynamicId)
         packet.encode(packetBuilder)
+        val payload = packetBuilder.readByteArray()
 
-        val payload = packetBuilder.build()
-        val packetSize = payload.remaining.toInt()
-
-        writeChannel.writeVarInt(packetSize)
-        writeChannel.writePacket(payload)
+        sendRawPacket(dynamicId, Buffer().apply { write(payload) })
     }
 
     suspend fun sendRawPacket(id: Int, data: Source) {
@@ -154,12 +150,10 @@ class ClientConnection(
 
                 if (direction == 0 && player.state == ConnectionState.LOGIN && raw.id == 0x02) {
                     player.state = ConnectionState.PLAY
-                    println("State transitioned to PLAY")
                 }
 
                 if (raw.id == 0x03 && player.state != ConnectionState.PLAY) {
                     val threshold = raw.data.peek().readVarInt()
-                    println("Setting Compression Threshold to: $threshold")
 
                     to.sendRawPacket(raw.id, raw.data)
 
@@ -178,13 +172,10 @@ class ClientConnection(
                 if (decoder != null) {
                     try {
                         val decoded = decoder(raw.data.peek())
-                        println("decoded ${raw.id}")
                         val isCancelled = PacketEventManager.emit(player, decoded)
 
-                        if (isCancelled) {
-                            println("Packet ${raw.id} was cancelled by a higher prio handler!")
+                        if (isCancelled)
                             continue
-                        }
                     } catch (e: Exception) {
                     }
                 }

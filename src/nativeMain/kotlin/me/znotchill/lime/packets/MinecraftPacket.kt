@@ -107,3 +107,11 @@ fun Sink.writeUUID(uuid: MinecraftUUID) {
 fun Source.readUUID(): MinecraftUUID {
     return MinecraftUUID(readLong(), readLong())
 }
+
+fun Sink.writeBoolean(value: Boolean) {
+    writeByte(if (value) 1 else 0)
+}
+
+fun Source.readBoolean(): Boolean {
+    return readByte().toInt() != 0
+}

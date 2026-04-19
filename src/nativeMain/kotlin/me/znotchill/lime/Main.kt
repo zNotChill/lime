@@ -8,6 +8,9 @@ import kotlinx.serialization.json.Json
 import me.znotchill.lime.events.DefaultEvents
 import me.znotchill.lime.generated.Protocol
 import me.znotchill.lime.packets.registry.clientbound.login.SetCompressionPacket
+import me.znotchill.lime.packets.registry.clientbound.play.CommandsPacket
+import me.znotchill.lime.packets.registry.clientbound.play.SystemChatPacket
+import me.znotchill.lime.packets.registry.serverbound.configuration.FinishConfigurationPacket
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
@@ -35,6 +38,9 @@ fun main() = runBlocking {
     ChatPacket.init()
     CommandPacket.init()
     LoginStartPacket.init()
+    FinishConfigurationPacket.init()
+    SystemChatPacket.init()
+    CommandsPacket.init()
 
     SetCompressionPacket.init()
 
