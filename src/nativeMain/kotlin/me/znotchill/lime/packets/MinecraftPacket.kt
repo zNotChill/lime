@@ -7,7 +7,7 @@ import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import me.znotchill.lime.ConnectionState
 import me.znotchill.lime.generated.Identifiable
-import me.znotchill.lime.utils.MinecraftUUID
+import me.znotchill.lime.utils.UUID
 
 interface MinecraftPacket {
     val id: Identifiable
@@ -99,13 +99,13 @@ fun Source.readMcString(): String {
     return this.readByteArray(length).decodeToString()
 }
 
-fun Sink.writeUUID(uuid: MinecraftUUID) {
+fun Sink.writeUUID(uuid: UUID) {
     writeLong(uuid.mostSignificantBits)
     writeLong(uuid.leastSignificantBits)
 }
 
-fun Source.readUUID(): MinecraftUUID {
-    return MinecraftUUID(readLong(), readLong())
+fun Source.readUUID(): UUID {
+    return UUID(readLong(), readLong())
 }
 
 fun Sink.writeBoolean(value: Boolean) {

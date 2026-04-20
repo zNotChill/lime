@@ -5,7 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import me.znotchill.lime.components.Component
 import me.znotchill.lime.packets.registry.clientbound.play.SystemChatPacket
-import me.znotchill.lime.utils.MinecraftUUID
+import me.znotchill.lime.utils.UUID
 
 enum class ConnectionState {
     HANDSHAKE,
@@ -20,7 +20,7 @@ class MinecraftPlayer(
     var state: ConnectionState = ConnectionState.HANDSHAKE
 ) {
     var username: String = ""
-    var uuid: MinecraftUUID = MinecraftUUID(0L, 0L)
+    var uuid: UUID = UUID(0L, 0L)
     var protocol: Int = 0
     
     var remoteConnection: ClientConnection? = null

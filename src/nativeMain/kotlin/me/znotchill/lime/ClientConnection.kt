@@ -19,6 +19,7 @@ import me.znotchill.lime.packets.payloads.StatusVersion
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.status.StatusResponsePacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
+import me.znotchill.lime.zlib.ZLib
 
 class ClientConnection(
     private val socket: Socket,
@@ -58,7 +59,7 @@ class ClientConnection(
                 toCompress.writeVarInt(id)
                 toCompress.write(payloadBytes)
 
-                val compressed = compressZlib(toCompress.readByteArray())
+                val compressed = ZLib.compress(toCompress.readByteArray())
 
                 val dataLenSize = getVarIntSize(uncompressedSize)
                 out.writeVarInt(dataLenSize + compressed.size)
@@ -90,7 +91,7 @@ class ClientConnection(
             val dataLength = rawData.readVarInt()
             if (dataLength != 0) {
                 val compressedBytes = rawData.readByteArray()
-                val decompressed = decompressZlib(compressedBytes, dataLength)
+                val decompressed = ZLib.decompress(compressedBytes, dataLength)
                 val buffer = Buffer().apply { write(decompressed) }
                 return RawPacket(buffer.readVarInt(), buffer)
             }
@@ -108,13 +109,13 @@ class ClientConnection(
             player.protocol = handshake.protocolVersion
             player.clientConnection.protocol = handshake.protocolVersion
 
-            println("Player protocol: ${handshake.protocolVersion}, Next State: ${handshake.nextState}")
-
             if (handshake.nextState == 1) {
                 player.clientConnection.handleStatus(player)
             } else if (handshake.nextState == 2) {
                 player.state = ConnectionState.LOGIN
-                val serverSocket = aSocket(selector).tcp().connect("127.0.0.1", 25565)
+                val serverSocket = aSocket(selector).tcp().connect(
+                    "127.0.0.1", 25565
+                )
                 val backend = ClientConnection(serverSocket, player.clientConnection.scope)
                 player.remoteConnection = backend
 

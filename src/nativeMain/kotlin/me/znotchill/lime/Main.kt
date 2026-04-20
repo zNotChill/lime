@@ -2,9 +2,10 @@ package me.znotchill.lime
 
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
-import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
+import me.znotchill.lime.data.DataManager
+import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.events.DefaultEvents
 import me.znotchill.lime.generated.Protocol
 import me.znotchill.lime.packets.registry.clientbound.login.SetCompressionPacket
@@ -17,23 +18,29 @@ import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
 import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
-import platform.zlib.Z_OK
-import platform.zlib.compress
-import platform.zlib.uncompress
+import me.znotchill.lime.utils.NetworkUtils
+import me.znotchill.lime.utils.bind
+import me.znotchill.lime.utils.toSocketAddress
 
 val json = Json {
     encodeDefaults = true
 }
 
 fun main() = runBlocking {
+    DataManager.register(ConfigManager)
+    DataManager.initialize()
+
     val selectorManager = SelectorManager(Dispatchers.Default)
-    val serverSocket = aSocket(selectorManager).tcp().bind("0.0.0.0", 30067)
+
+    val serverSocket = aSocket(selectorManager).tcp().bind(
+        ConfigManager.server.status.bind.toSocketAddress()
+    )
 
     val proxyScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     PacketProtocolRegistry.register(Protocol.protocol774)
 
-    println("Native Proxy started on port 30067")
+    println("Native Proxy started @ ${ConfigManager.server.status.bind}")
 
     HandshakePacket.init()
     ChatPacket.init()
@@ -55,60 +62,6 @@ fun main() = runBlocking {
             val player = MinecraftPlayer(connection)
 
             connection.handlePlayerSession(player, selectorManager)
-        }
-    }
-}
-
-
-@OptIn(ExperimentalForeignApi::class, UnsafeNumber::class)
-fun decompressZlib(compressedData: ByteArray, uncompressedSize: Int): ByteArray {
-    val result = ByteArray(uncompressedSize)
-
-    return memScoped {
-        val scope = this
-
-        compressedData.usePinned { pinnedCompressed ->
-            result.usePinned { pinnedResult ->
-                val destLen = scope.alloc<UIntVar>()
-                destLen.value = uncompressedSize.toUInt()
-
-                val status = uncompress(
-                    pinnedResult.addressOf(0).reinterpret(),
-                    destLen.ptr.reinterpret(),
-                    pinnedCompressed.addressOf(0).reinterpret(),
-                    compressedData.size.convert()
-                )
-
-                if (status != Z_OK) {
-                    throw RuntimeException("Zlib decompression failed with status: $status")
-                }
-                result
-            }
-        }
-    }
-}
-@OptIn(ExperimentalForeignApi::class, UnsafeNumber::class)
-fun compressZlib(data: ByteArray): ByteArray {
-    val maxCompressedSize = (data.size * 1.1).toInt() + 12
-    val resultBuffer = ByteArray(maxCompressedSize)
-
-    return data.usePinned { pinnedData ->
-        resultBuffer.usePinned { pinnedResult ->
-            memScoped {
-                val destLen = alloc<ULongVar>()
-                destLen.value = maxCompressedSize.toULong()
-
-                val status = compress(
-                    pinnedResult.addressOf(0).reinterpret(),
-                    destLen.ptr.reinterpret(),
-                    pinnedData.addressOf(0).reinterpret(),
-                    data.size.toUInt()
-                )
-
-                if (status != Z_OK) throw RuntimeException("Compression failed")
-
-                resultBuffer.copyOf(destLen.value.toInt())
-            }
         }
     }
 }

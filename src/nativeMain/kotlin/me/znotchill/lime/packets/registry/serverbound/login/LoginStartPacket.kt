@@ -10,11 +10,11 @@ import me.znotchill.lime.packets.readMcString
 import me.znotchill.lime.packets.readUUID
 import me.znotchill.lime.packets.writeMcString
 import me.znotchill.lime.packets.writeUUID
-import me.znotchill.lime.utils.MinecraftUUID
+import me.znotchill.lime.utils.UUID
 
 class LoginStartPacket(
     val name: String,
-    val uuid: MinecraftUUID,
+    val uuid: UUID,
 ) : ClientPacket {
     override val id = Packet.Serverbound.Login.LoginStart
     override val state = ConnectionState.LOGIN

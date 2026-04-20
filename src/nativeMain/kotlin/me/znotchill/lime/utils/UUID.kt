@@ -1,6 +1,6 @@
 package me.znotchill.lime.utils
 
-class MinecraftUUID(val mostSignificantBits: Long, val leastSignificantBits: Long) {
+class UUID(val mostSignificantBits: Long, val leastSignificantBits: Long) {
 
     override fun toString(): String {
         return buildString {
@@ -23,7 +23,7 @@ class MinecraftUUID(val mostSignificantBits: Long, val leastSignificantBits: Lon
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is MinecraftUUID) return false
+        if (other !is UUID) return false
         return mostSignificantBits == other.mostSignificantBits && 
                leastSignificantBits == other.leastSignificantBits
     }
@@ -35,7 +35,7 @@ class MinecraftUUID(val mostSignificantBits: Long, val leastSignificantBits: Lon
     }
 
     companion object {
-        fun fromString(name: String): MinecraftUUID {
+        fun fromString(name: String): UUID {
             val components = name.split("-")
             if (components.size != 5)
                 throw IllegalArgumentException("Invalid UUID: $name")
@@ -47,7 +47,7 @@ class MinecraftUUID(val mostSignificantBits: Long, val leastSignificantBits: Lon
             var leastSigBits = components[3].toLong(16) shl 48
             leastSigBits = leastSigBits or components[4].toLong(16)
 
-            return MinecraftUUID(mostSigBits, leastSigBits)
+            return UUID(mostSigBits, leastSigBits)
         }
     }
 }

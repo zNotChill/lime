@@ -35,7 +35,8 @@ kotlin {
             implementation("io.ktor:ktor-server-cio:${ktor_version}")
             implementation("io.ktor:ktor-network:${ktor_version}")
             implementation("io.ktor:ktor-network-tls:${ktor_version}")
-            implementation("net.kyori:adventure-api:5.0.0")
+            implementation("com.akuleshov7:ktoml-core:0.7.1")
+            implementation("com.akuleshov7:ktoml-file:0.7.1")
             implementation(kotlin("reflect"))
         }
     }
