@@ -4,6 +4,7 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import me.znotchill.lime.LimeProxy
+import me.znotchill.lime.ProxyPhase
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.client.connection.ClientConnection
 import me.znotchill.lime.client.pipeline.SessionPipeline
@@ -17,6 +18,8 @@ import me.znotchill.lime.packets.registry.clientbound.login.LoginDisconnectPacke
 import me.znotchill.lime.packets.registry.clientbound.play.PlayDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.play.StartConfigurationPacket
 import me.znotchill.lime.packets.registry.clientbound.play.SystemChatPacket
+import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
+import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
 import me.znotchill.lime.servers.ServerManager
 import me.znotchill.lime.utils.UUID
@@ -34,6 +37,7 @@ class MinecraftPlayer(
     val scope: CoroutineScope,
     var state: ConnectionState = ConnectionState.HANDSHAKE
 ) : Loggable {
+    var backendState: ConnectionState = ConnectionState.HANDSHAKE
     var username: String = ""
     override val loggerTag: String
         get() = "Player@$username"
@@ -58,6 +62,19 @@ class MinecraftPlayer(
             name = packet.value
         ) ?: throw IllegalStateException(
             "Packet ${packet.value} not found for version $protocol in state $targetState"
+        )
+    }
+
+    fun getPacketName(id: Int, stateOverride: ConnectionState? = null, direction: PipeDirection = PipeDirection.CLIENT): String {
+        val targetState = stateOverride ?: this.state
+
+        return PacketProtocolRegistry.getName(
+            version = this.protocol,
+            state = targetState,
+            direction = direction,
+            id = id
+        ) ?: throw IllegalStateException(
+            "Packet name for $id not found for version $protocol in state $targetState"
         )
     }
 
@@ -96,6 +113,10 @@ class MinecraftPlayer(
         }
 
         log.i("Connecting to $serverName...")
+
+        pipeline.phase = ProxyPhase.SWITCHING
+        pipeline.droppingBackendPackets = true
+
         val serverSocket = try {
             withTimeout(ConfigManager.server.socketTimeout) {
                 aSocket(selector).tcp().connect(server.address.host, server.address.port)
@@ -115,15 +136,29 @@ class MinecraftPlayer(
             pipeline.backend = backend
             remoteConnection = backend
 
-            state = ConnectionState.LOGIN
+            backendState = ConnectionState.LOGIN
 //            clientConnection.compressionThreshold = -1
             backend.compressionThreshold = -1
 
-            pipeline.startBackendReader(this@MinecraftPlayer)
             pipeline.droppingBackendPackets = false
 
-            backend.sendRawPacket(handshakePacket.id, handshakePacket.data)
-            backend.sendRawPacket(loginStartPacket.id, loginStartPacket.data)
+            backend.protocol = this.protocol
+            val handshake = HandshakePacket(
+                protocolVersion = this.protocol,
+                serverAddress = server.address.host,
+                serverPort = server.address.port,
+                nextState = 2
+            )
+
+            backend.sendPacket(handshake, ConnectionState.HANDSHAKE)
+
+            val loginStart = LoginStartPacket(
+                name = this.username,
+                uuid = this.uuid
+            )
+
+            pipeline.startBackendReader(this@MinecraftPlayer)
+            backend.sendPacket(loginStart, ConnectionState.LOGIN)
 
             log.i("Backend switch completed to $serverName")
         } catch (e: Exception) {

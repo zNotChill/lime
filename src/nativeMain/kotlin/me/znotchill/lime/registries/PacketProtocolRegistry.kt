@@ -21,7 +21,11 @@ object PacketProtocolRegistry {
 
         fun mapList(state: ConnectionState, direction: PipeDirection, list: List<String>) {
             list.forEachIndexed { id, name ->
-                nameToId[getNameKey(v, state, direction, name)] = id
+                val nameKey = getNameKey(v, state, direction, name)
+                val idKey = getInternalKey(v, state, direction, id)
+
+                nameToId[nameKey] = id
+                idToName[idKey] = name
             }
         }
 

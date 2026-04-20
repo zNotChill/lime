@@ -74,6 +74,7 @@ class LimeProxy : Loggable {
         val proxyScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
         PacketProtocolRegistry.register(Protocol.protocol774)
+        PacketProtocolRegistry.register(Protocol.protocol773)
 
         HandshakePacket.init()
         ChatPacket.init()

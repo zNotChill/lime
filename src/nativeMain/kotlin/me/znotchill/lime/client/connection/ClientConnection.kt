@@ -30,19 +30,26 @@ class ClientConnection(
     override var loggerTag = "Conn@Player"
     var bridgeJob: Job? = null
 
-    suspend fun sendPacket(packet: MinecraftPacket) {
-        val packetBuilder = Buffer()
-
+    suspend fun sendPacket(packet: MinecraftPacket, direction: PipeDirection) {
         val state = (packet as? ClientPacket)?.state ?: ConnectionState.STATUS
-        val idName = packet.id.value
 
-        val dynamicId = PacketProtocolRegistry.getId(protocol, state, PipeDirection.CLIENT, idName)
-            ?: throw IllegalStateException("Packet $idName not found for version $protocol")
+        sendPacket(
+            packet = packet,
+            state = state,
+            direction = direction,
+            protocol = this.protocol
+        )
+    }
 
-        packet.encode(packetBuilder)
-        val payload = packetBuilder.readByteArray()
+    suspend fun sendPacket(packet: MinecraftPacket) {
+        val state = (packet as? ClientPacket)?.state ?: ConnectionState.STATUS
 
-        sendRawPacket(dynamicId, Buffer().apply { write(payload) })
+        sendPacket(
+            packet = packet,
+            state = state,
+            direction = PipeDirection.CLIENT,
+            protocol = this.protocol
+        )
     }
 
     suspend fun tryAllServers(selector: SelectorManager): ServerConnectionResponse? {

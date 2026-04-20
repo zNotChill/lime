@@ -4,15 +4,14 @@ import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.core.*
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
 import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
+import me.znotchill.lime.client.ConnectionState
+import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.log.Loggable
-import me.znotchill.lime.packets.RawPacket
-import me.znotchill.lime.packets.getVarIntSize
-import me.znotchill.lime.packets.readVarInt
-import me.znotchill.lime.packets.writeVarInt
+import me.znotchill.lime.packets.*
+import me.znotchill.lime.registries.PacketProtocolRegistry
 import me.znotchill.lime.zlib.ZLib
 
 abstract class Connection(
@@ -24,6 +23,31 @@ abstract class Connection(
 
     var compressionThreshold: Int = -1
     var protocol: Int = 0
+
+    suspend fun sendPacket(
+        packet: MinecraftPacket,
+        state: ConnectionState,
+        direction: PipeDirection,
+        protocol: Int
+    ) {
+        val buffer = Buffer()
+
+        val idName = packet.id.value
+
+        val packetId = PacketProtocolRegistry.getId(
+            version = protocol,
+            state = state,
+            direction = direction,
+            name = idName
+        ) ?: throw IllegalStateException(
+            "Packet $idName not found for version $protocol state $state dir $direction"
+        )
+
+        packet.encode(buffer)
+        val payload = buffer.readByteArray()
+
+        sendRawPacket(packetId, Buffer().apply { write(payload) })
+    }
 
     suspend fun sendRawPacket(id: Int, data: Source, forceUncompressed: Boolean = false) {
         try {
@@ -101,6 +125,8 @@ abstract class Connection(
 
     fun close() {
         socket.close()
-        scope.cancel()
+
+        // bruh
+//        scope.cancel()
     }
 }

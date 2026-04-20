@@ -84,6 +84,7 @@ object DefaultEvents {
 
         PacketEventManager.register<CommandPacket> { event ->
             val command = event.packet.command
+            println("${event.player.username} issued: /$command")
             val root = command.split(" ").first()
 
             if (CommandManager.exists(root)) {
@@ -92,7 +93,6 @@ object DefaultEvents {
                 if (!handled) event.player.send("Unknown command.")
             }
 
-            println("${event.player.username} issued: /$command")
         }
 
         PacketEventManager.register<ChatPacket> { event ->

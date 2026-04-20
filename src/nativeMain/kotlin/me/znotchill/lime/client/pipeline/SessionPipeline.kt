@@ -6,6 +6,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.selects.select
+import me.znotchill.lime.ProxyPhase
 import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.PipeDirection
@@ -18,6 +19,7 @@ import me.znotchill.lime.packets.PacketRegistry
 import me.znotchill.lime.packets.RawPacket
 import me.znotchill.lime.packets.readVarInt
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
+import me.znotchill.lime.packets.registry.serverbound.login.LoginAcknowledgedPacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 
 class SessionPipeline(
@@ -41,6 +43,7 @@ class SessionPipeline(
 
     var backendReaderScope: CoroutineScope? = null
     var droppingBackendPackets = false
+    var phase = ProxyPhase.NORMAL
 
     fun startClientReader() = scope.launch {
         try {
@@ -50,6 +53,8 @@ class SessionPipeline(
                     inboundFromClient.send(packet)
                 }
             }
+        } catch (_: CancellationException) {
+            // intentional, do nothing
         } catch (e: Exception) {
             if (running) stop("Client reader died: ${e.message}")
         }
@@ -101,6 +106,8 @@ class SessionPipeline(
                     break
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             if (running) stop("Dispatcher error: ${e.message}")
         }
@@ -140,7 +147,7 @@ class SessionPipeline(
     }
 
     suspend fun handleClientPacket(player: MinecraftPlayer, packet: RawPacket) {
-//        println("[C -> S] State: ${player.state} | ID: 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
+        log.d("[C -> S] State: ${player.state} | ID: 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
 
         if (processPacket(player, packet, PipeDirection.SERVER)) return
 
@@ -195,7 +202,9 @@ class SessionPipeline(
                     if (player.pendingServerSwitch != null) {
                         val serverName = player.pendingServerSwitch!!
                         player.pendingServerSwitch = null
-                        player.performBackendSwitch(serverName, selector)
+                        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                            player.performBackendSwitch(serverName, selector)
+                        }
                         return
                     }
                 }
@@ -207,9 +216,55 @@ class SessionPipeline(
     }
 
     suspend fun handleBackendPacket(player: MinecraftPlayer, packet: RawPacket) {
-        if (droppingBackendPackets) return
-
+        val packetName = try { player.getPacketName(packet.id, player.state, PipeDirection.SERVER) }
+            catch (_: Exception) { "none" }
+        val backendPacketName = try { player.getPacketName(packet.id, player.backendState, PipeDirection.SERVER) }
+            catch (_: Exception) { "none" }
+        log.d("[S -> C] Phase: $phase | State: ${player.state} / $packetName (B: ${player.backendState} / $backendPacketName) | ID: ${packet.id} 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
         if (processPacket(player, packet, PipeDirection.CLIENT)) return
+
+        if (phase == ProxyPhase.SWITCHING) {
+            when (player.backendState) {
+                ConnectionState.LOGIN -> {
+                    if (packet.id == player.getPacketId(Packet.Clientbound.Login.Success, ConnectionState.LOGIN)) {
+                        println("LOGIN ACKNOWLEDGED")
+                        player.backendState = ConnectionState.CONFIGURATION
+
+                        val loginAckId = player.getPacketId(Packet.Serverbound.Login.LoginAcknowledged, ConnectionState.LOGIN)
+                        backend?.sendRawPacket(loginAckId, Buffer())
+                        return
+                    }
+                }
+                ConnectionState.PLAY -> {
+                    log.i("Backend reached PLAY, completing switch")
+                    completeSwitch(player)
+                    return
+                }
+                ConnectionState.CONFIGURATION -> {
+                    val finishId = player.getPacketId(Packet.Clientbound.Config.FinishConfiguration)
+
+                    if (packet.id == finishId) {
+                        log.d("Backend finished config. Telling client to finish too.")
+
+                        // NOW tell the client to finish (moving client to PLAY)
+                        client.sendRawPacket(packet.id, packet.data)
+
+                        completeSwitch(player)
+                        return
+                    }
+
+                    if (player.state == ConnectionState.CONFIGURATION) {
+                        log.d("SENDING ${packet.id} TO CLIENT!!!")
+                        client.sendRawPacket(packet.id, packet.data)
+                    }
+                }
+                else -> {
+                    println("sending ${packet.id} in ${player.backendState}")
+                    return
+                }
+            }
+            return
+        }
 
         val client = player.clientConnection
         when (player.state) {
@@ -217,13 +272,32 @@ class SessionPipeline(
 
             ConnectionState.CONFIGURATION -> {
                 val finishId = player.getPacketId(Packet.Clientbound.Config.FinishConfiguration)
-                if (packet.id == finishId) {
+                if (packet.id == finishId && player.backendState == ConnectionState.CONFIGURATION) {
                     player.state = ConnectionState.PLAY
                 }
                 client.sendRawPacket(packet.id, packet.data)
             }
             else -> client.sendRawPacket(packet.id, packet.data)
         }
+    }
+
+    private suspend fun completeSwitch(player: MinecraftPlayer) {
+        log.i("Completing switch")
+
+        // allow packets again
+        phase = ProxyPhase.NORMAL
+
+        // sync states
+        player.state = ConnectionState.PLAY
+
+        val backend = player.remoteConnection
+        val client = player.clientConnection
+
+        if (backend != null) {
+            client.compressionThreshold = backend.compressionThreshold
+        }
+
+        log.i("Switch complete")
     }
 
     private suspend fun handleLogin(player: MinecraftPlayer, packet: RawPacket) {

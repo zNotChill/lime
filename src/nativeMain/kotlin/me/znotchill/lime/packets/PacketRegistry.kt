@@ -15,7 +15,7 @@ object PacketRegistry {
         packet: Identifiable,
         decoder: (Source) -> MinecraftPacket
     ) {
-        val supportedVersions = listOf(774, 763)
+        val supportedVersions = listOf(774, 773)
 
         for (v in supportedVersions) {
             val dynamicId = PacketProtocolRegistry.getId(v, state, direction, packet.value)
