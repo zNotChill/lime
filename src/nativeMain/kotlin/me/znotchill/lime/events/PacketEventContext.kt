@@ -1,6 +1,6 @@
 package me.znotchill.lime.events
 
-import me.znotchill.lime.MinecraftPlayer
+import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.packets.MinecraftPacket
 
 class PacketEventContext<T : MinecraftPacket>(

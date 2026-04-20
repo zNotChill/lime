@@ -3,7 +3,11 @@ package me.znotchill.lime.utils
 data class SocketAddress(
     val host: String,
     val port: Int
-)
+) {
+    override fun toString(): String {
+        return "$host:$port"
+    }
+}
 
 object NetworkUtils {
     fun parseAddress(input: String, defaultPort: Int = 25565): SocketAddress {

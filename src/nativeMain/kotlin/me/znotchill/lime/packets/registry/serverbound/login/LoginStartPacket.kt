@@ -2,7 +2,8 @@ package me.znotchill.lime.packets.registry.serverbound.login
 
 import kotlinx.io.Sink
 import kotlinx.io.Source
-import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.client.ConnectionState
+import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.PacketRegistry
@@ -20,7 +21,12 @@ class LoginStartPacket(
     override val state = ConnectionState.LOGIN
 
     companion object {
-        fun init() = PacketRegistry.register(ConnectionState.LOGIN, 1, Packet.Serverbound.Login.LoginStart, ::decode)
+        fun init() = PacketRegistry.register(
+            ConnectionState.LOGIN,
+            PipeDirection.SERVER,
+            Packet.Serverbound.Login.LoginStart,
+            ::decode
+        )
 
         fun decode(packet: Source): LoginStartPacket {
             return LoginStartPacket(

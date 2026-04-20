@@ -1,11 +1,20 @@
 package me.znotchill.lime.components
 
 import kotlinx.io.Sink
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import me.znotchill.lime.nbt.NbtCompound
 import me.znotchill.lime.nbt.NbtString
 import me.znotchill.lime.nbt.nbtCompound
 import me.znotchill.lime.utils.escapeJson
 
+@Serializable
 sealed class Component {
     abstract fun toJson(): String
 
@@ -54,6 +63,46 @@ sealed class Component {
     companion object {
         fun text(value: String) = TextComponent(value)
         fun translatable(key: String) = TranslatableComponent(key)
+
+        private val jsonParser = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
+
+        fun fromJson(json: String): Component {
+            val element = jsonParser.parseToJsonElement(json)
+            return fromJsonElement(element)
+        }
+
+        fun fromJsonElement(element: JsonElement): Component {
+            if (element is JsonPrimitive && element.isString) {
+                return TextComponent(element.content)
+            }
+
+            val obj = element.jsonObject
+            return when {
+                "text" in obj -> {
+                    TextComponent(
+                        text = obj["text"]?.jsonPrimitive?.content ?: "",
+                        color = obj["color"]?.jsonPrimitive?.content?.let { TextColor(it) },
+                        bold = obj["bold"]?.jsonPrimitive?.booleanOrNull,
+                        italic = obj["italic"]?.jsonPrimitive?.booleanOrNull,
+                        underlined = obj["underlined"]?.jsonPrimitive?.booleanOrNull,
+                        strikethrough = obj["strikethrough"]?.jsonPrimitive?.booleanOrNull,
+                        obfuscated = obj["obfuscated"]?.jsonPrimitive?.booleanOrNull,
+                        extra = obj["extra"]?.jsonArray?.map { fromJsonElement(it) } ?: emptyList()
+                    )
+                }
+                "translate" in obj -> {
+                    TranslatableComponent(
+                        key = obj["translate"]?.jsonPrimitive?.content ?: "",
+                        color = obj["color"]?.jsonPrimitive?.content?.let { TextColor(it) },
+                        with = obj["with"]?.jsonArray?.map { fromJsonElement(it) } ?: emptyList()
+                    )
+                }
+                else -> TextComponent("")
+            }
+        }
     }
 }
 

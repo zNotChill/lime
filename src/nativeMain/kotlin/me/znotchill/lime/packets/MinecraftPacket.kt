@@ -5,7 +5,7 @@ import io.ktor.utils.io.core.*
 import kotlinx.io.Sink
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
-import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.generated.Identifiable
 import me.znotchill.lime.utils.UUID
 

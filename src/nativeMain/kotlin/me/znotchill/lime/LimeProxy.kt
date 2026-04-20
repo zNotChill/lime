@@ -5,6 +5,9 @@ import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
+import me.znotchill.lime.client.MinecraftPlayer
+import me.znotchill.lime.client.connection.ClientConnection
+import me.znotchill.lime.client.pipeline.SessionPipeline
 import me.znotchill.lime.data.DataManager
 import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.events.DefaultEvents
@@ -20,7 +23,10 @@ import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
 import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
+import me.znotchill.lime.packets.registry.serverbound.status.PingRequestPacket
+import me.znotchill.lime.packets.registry.serverbound.status.StatusRequestPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
+import me.znotchill.lime.servers.ServerManager
 import me.znotchill.lime.utils.bind
 import me.znotchill.lime.utils.toSocketAddress
 import kotlin.time.Clock
@@ -31,6 +37,9 @@ val json = Json {
 
 class LimeProxy : Loggable {
     override val loggerTag = "Main"
+    companion object {
+        val selectorManager = SelectorManager(Dispatchers.Default)
+    }
 
     suspend fun start() = run {
         Logger.setLogWriters(LimeLogWriter())
@@ -56,7 +65,7 @@ class LimeProxy : Loggable {
 
         log.i("Lime Proxy starting @ ${ConfigManager.server.status.bind}")
 
-        val selectorManager = SelectorManager(Dispatchers.Default)
+        ServerManager.registerAllFromConfig()
 
         val serverSocket = aSocket(selectorManager).tcp().bind(
             ConfigManager.server.status.bind.toSocketAddress()
@@ -74,6 +83,8 @@ class LimeProxy : Loggable {
         SystemChatPacket.init()
         CommandsPacket.init()
         TabCompleteRequestPacket.init()
+        StatusRequestPacket.init()
+        PingRequestPacket.init()
 
         SetCompressionPacket.init()
 
@@ -85,11 +96,17 @@ class LimeProxy : Loggable {
         while (true) {
             val socket = serverSocket.accept()
             proxyScope.launch {
-                val connection = ClientConnection(socket, proxyScope)
-                val player = MinecraftPlayer(connection)
+                val playerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+                val connection = ClientConnection(socket, playerScope)
+                val player = MinecraftPlayer(connection, playerScope)
                 connection.player = player
 
-                connection.handlePlayerSession(player, selectorManager)
+                val pipeline = SessionPipeline(connection, playerScope, selectorManager)
+                pipeline.player = player
+                player.pipeline = pipeline
+
+                player.pipeline.startClientReader()
+                player.pipeline.startDispatcher(player)
             }
         }
     }

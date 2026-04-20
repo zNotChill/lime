@@ -1,6 +1,6 @@
 package me.znotchill.lime.commands
 
-import me.znotchill.lime.MinecraftPlayer
+import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.packets.payloads.CommandNode
 import me.znotchill.lime.packets.payloads.NodeType
 import me.znotchill.lime.packets.registry.clientbound.play.CommandsPacket

@@ -1,25 +1,38 @@
 package me.znotchill.lime.generated
 
-interface Identifiable { val value: String }
-class PacketName(override val value: String) : Identifiable
+import me.znotchill.lime.client.PipeDirection
+
+interface Identifiable {
+    val value: String
+    val direction: PipeDirection
+}
 
 object Packet {
     object Serverbound {
-        enum class Handshake(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Handshake(val internal: String) : Identifiable {
             Intention("intention"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.SERVER
         }
-        enum class Status(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Status(val internal: String) : Identifiable {
             Ping("ping"),
             PingStart("ping_start"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.SERVER
         }
-        enum class Login(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Login(val internal: String) : Identifiable {
             CookieResponse("cookie_response"),
             EncryptionBegin("encryption_begin"),
             LoginAcknowledged("login_acknowledged"),
             LoginPluginResponse("login_plugin_response"),
             LoginStart("login_start"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.SERVER
         }
-        enum class Config(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Config(val internal: String) : Identifiable {
             AcceptCodeOfConduct("accept_code_of_conduct"),
             CookieResponse("cookie_response"),
             CustomClickAction("custom_click_action"),
@@ -30,8 +43,11 @@ object Packet {
             ResourcePackReceive("resource_pack_receive"),
             SelectKnownPacks("select_known_packs"),
             Settings("settings"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.SERVER
         }
-        enum class Play(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Play(val internal: String) : Identifiable {
             Abilities("abilities"),
             AdvancementTab("advancement_tab"),
             ArmAnimation("arm_animation"),
@@ -98,22 +114,31 @@ object Packet {
             UseItem("use_item"),
             VehicleMove("vehicle_move"),
             WindowClick("window_click"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.SERVER
         }
     }
     object Clientbound {
-        enum class Status(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Status(val internal: String) : Identifiable {
             Ping("ping"),
             ServerInfo("server_info"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.CLIENT
         }
-        enum class Login(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Login(val internal: String) : Identifiable {
             Compress("compress"),
             CookieRequest("cookie_request"),
             Disconnect("disconnect"),
             EncryptionBegin("encryption_begin"),
             LoginPluginRequest("login_plugin_request"),
             Success("success"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.CLIENT
         }
-        enum class Config(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Config(val internal: String) : Identifiable {
             AddResourcePack("add_resource_pack"),
             ClearDialog("clear_dialog"),
             CodeOfConduct("code_of_conduct"),
@@ -134,8 +159,11 @@ object Packet {
             StoreCookie("store_cookie"),
             Tags("tags"),
             Transfer("transfer"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.CLIENT
         }
-        enum class Play(val internal: String) : Identifiable by PacketName(internal) {
+        enum class Play(val internal: String) : Identifiable {
             Abilities("abilities"),
             AcknowledgePlayerDigging("acknowledge_player_digging"),
             ActionBar("action_bar"),
@@ -275,6 +303,9 @@ object Packet {
             WorldBorderWarningReach("world_border_warning_reach"),
             WorldEvent("world_event"),
             WorldParticles("world_particles"),
+            ;
+            override val value: String get() = internal
+            override val direction: PipeDirection get() = PipeDirection.CLIENT
         }
     }
 }

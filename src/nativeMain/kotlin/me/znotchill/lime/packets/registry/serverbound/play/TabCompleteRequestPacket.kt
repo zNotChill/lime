@@ -2,7 +2,8 @@ package me.znotchill.lime.packets.registry.serverbound.play
 
 import kotlinx.io.Sink
 import kotlinx.io.Source
-import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.client.ConnectionState
+import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.PacketRegistry
@@ -19,7 +20,12 @@ class TabCompleteRequestPacket(
     override val state = ConnectionState.PLAY
 
     companion object {
-        fun init() = PacketRegistry.register(ConnectionState.PLAY, 1, Packet.Serverbound.Play.TabComplete, ::decode)
+        fun init() = PacketRegistry.register(
+            ConnectionState.PLAY,
+            PipeDirection.SERVER,
+            Packet.Serverbound.Play.TabComplete,
+            ::decode
+        )
 
         fun decode(packet: Source): TabCompleteRequestPacket {
             return TabCompleteRequestPacket(

@@ -1,10 +1,12 @@
 package me.znotchill.lime.events
 
-import me.znotchill.lime.MinecraftPlayer
+import me.znotchill.lime.client.MinecraftPlayer
+import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.MinecraftPacket
 import kotlin.reflect.KClass
 
-object PacketEventManager {
+object PacketEventManager : Loggable {
+    override val loggerTag = "Events"
     class RegisteredHandler<T : MinecraftPacket>(
         val priority: EventPriority,
         val handler: PacketHandler<T>

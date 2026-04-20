@@ -1,6 +1,6 @@
 package me.znotchill.lime.commands
 
-import me.znotchill.lime.MinecraftPlayer
+import me.znotchill.lime.client.MinecraftPlayer
 
 class CommandContext(
     val player: MinecraftPlayer,

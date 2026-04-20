@@ -1,7 +1,7 @@
 
 package me.znotchill.lime.components
 
-sealed class TextColor(val value: String) {
+open class TextColor(val value: String) {
     object Black : TextColor("black")
     object DarkBlue : TextColor("dark_blue")
     object DarkGreen : TextColor("dark_green")

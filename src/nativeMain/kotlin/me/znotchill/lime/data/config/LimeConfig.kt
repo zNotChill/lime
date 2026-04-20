@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class LimeConfig(
     @SerialName("version") val configVersion: String = "1.0",
 
+    val socketTimeout: Long = 5000L,
     val status: StatusConfig,
 
     val servers: ServersConfig,

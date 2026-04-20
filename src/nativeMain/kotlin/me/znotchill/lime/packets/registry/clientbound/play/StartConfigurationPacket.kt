@@ -4,35 +4,26 @@ import kotlinx.io.Sink
 import kotlinx.io.Source
 import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.PipeDirection
-import me.znotchill.lime.components.Component
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.packets.*
 
-class SystemChatPacket(
-    val component: Component,
-    val overlay: Boolean = false
-) : ClientPacket {
-
-    constructor(text: String, overlay: Boolean = false) : this(Component.text(text), overlay)
-
-    override val id = Packet.Clientbound.Play.SystemChat
+class StartConfigurationPacket() : ClientPacket {
+    override val id = Packet.Clientbound.Play.StartConfiguration
     override val state = ConnectionState.PLAY
 
     companion object {
         fun init() = PacketRegistry.register(
             ConnectionState.PLAY,
             PipeDirection.CLIENT,
-            Packet.Clientbound.Play.SystemChat,
+            Packet.Clientbound.Play.StartConfiguration,
             ::decode
         )
 
-        fun decode(packet: Source): SystemChatPacket {
-            return SystemChatPacket("")
+        fun decode(packet: Source): StartConfigurationPacket {
+            return StartConfigurationPacket()
         }
     }
 
     override fun encode(output: Sink) {
-        component.writeNbt(output)
-        output.writeBoolean(overlay)
     }
 }

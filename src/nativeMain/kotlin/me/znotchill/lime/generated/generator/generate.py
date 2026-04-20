@@ -55,7 +55,6 @@ def run_conversion(input_dir, output_dir):
             protocol_blocks.append("\n".join(block))
 
     write_protocol_file(output_dir, protocol_blocks)
-
     write_packet_file(output_dir, all_packets)
 
 def write_protocol_file(output_dir, blocks):
@@ -71,18 +70,28 @@ def write_packet_file(output_dir, all_packets):
     lines = [
         "package me.znotchill.lime.generated",
         "",
-        "interface Identifiable { val value: String }",
-        "class PacketName(override val value: String) : Identifiable",
+        "import me.znotchill.lime.client.PipeDirection",
+        "",
+        "interface Identifiable {",
+        "    val value: String",
+        "    val direction: PipeDirection",
+        "}",
         "",
         "object Packet {"
     ]
 
     for direction, states in all_packets.items():
+        enum_dir = "PipeDirection.SERVER" if direction == "Serverbound" else "PipeDirection.CLIENT"
+
         lines.append(f"    object {direction} {{")
         for state, names in states.items():
-            lines.append(f"        enum class {state.capitalize()}(val internal: String) : Identifiable by PacketName(internal) {{")
+            lines.append(f"        enum class {state.capitalize()}(val internal: String) : Identifiable {{")
             for internal, pascal in sorted(list(names)):
                 lines.append(f"            {pascal}(\"{internal}\"),")
+
+            lines.append(f"            ;")
+            lines.append(f"            override val value: String get() = internal")
+            lines.append(f"            override val direction: PipeDirection get() = {enum_dir}")
             lines.append("        }")
         lines.append("    }")
     lines.append("}")

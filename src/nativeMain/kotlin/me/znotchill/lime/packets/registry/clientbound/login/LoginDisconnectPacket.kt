@@ -2,11 +2,13 @@ package me.znotchill.lime.packets.registry.clientbound.login
 
 import kotlinx.io.Sink
 import kotlinx.io.Source
-import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.client.ConnectionState
+import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.components.Component
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.PacketRegistry
+import me.znotchill.lime.packets.readMcString
 import me.znotchill.lime.packets.writeMcString
 
 class LoginDisconnectPacket(
@@ -18,10 +20,20 @@ class LoginDisconnectPacket(
     override val state = ConnectionState.LOGIN
 
     companion object {
-        fun init() = PacketRegistry.register(ConnectionState.LOGIN, 0, Packet.Clientbound.Login.Disconnect, ::decode)
+        fun init() = PacketRegistry.register(
+            ConnectionState.LOGIN,
+            PipeDirection.CLIENT,
+            Packet.Clientbound.Login.Disconnect,
+            ::decode
+        )
 
-        fun decode(packet: Source): LoginDisconnectPacket {
-            return LoginDisconnectPacket("")
+        fun decode(source: Source): LoginDisconnectPacket {
+            val json = source.readMcString()
+            return try {
+                LoginDisconnectPacket(Component.fromJson(json))
+            } catch (e: Exception) {
+                LoginDisconnectPacket("Failed to parse kick message: $json")
+            }
         }
     }
 

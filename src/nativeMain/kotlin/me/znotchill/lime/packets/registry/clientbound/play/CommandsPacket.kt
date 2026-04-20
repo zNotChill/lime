@@ -7,7 +7,8 @@ import kotlinx.io.readDouble
 import kotlinx.io.readFloat
 import kotlinx.io.writeDouble
 import kotlinx.io.writeFloat
-import me.znotchill.lime.ConnectionState
+import me.znotchill.lime.client.ConnectionState
+import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.PacketRegistry
@@ -26,7 +27,12 @@ data class CommandsPacket(
     override val state = ConnectionState.PLAY
 
     companion object {
-        fun init() = PacketRegistry.register(ConnectionState.PLAY, 0, Packet.Clientbound.Play.DeclareCommands, ::decode)
+        fun init() = PacketRegistry.register(
+            ConnectionState.PLAY,
+            PipeDirection.CLIENT,
+            Packet.Clientbound.Play.DeclareCommands,
+            ::decode
+        )
 
         fun decode(packet: Source): CommandsPacket {
             val nodeCount = packet.readVarInt()
