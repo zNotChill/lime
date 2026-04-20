@@ -17,6 +17,7 @@ import me.znotchill.lime.packets.payloads.StatusPayload
 import me.znotchill.lime.packets.payloads.StatusPlayers
 import me.znotchill.lime.packets.payloads.StatusVersion
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
+import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.status.StatusResponsePacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
 import me.znotchill.lime.zlib.ZLib
@@ -28,6 +29,8 @@ class ClientConnection(
     val readChannel = socket.openReadChannel()
     val writeChannel = socket.openWriteChannel(autoFlush = true)
     var protocol: Int = 0
+
+    lateinit var player: MinecraftPlayer
 
     val scope = CoroutineScope(parentScope.coroutineContext + SupervisorJob())
 
@@ -113,18 +116,27 @@ class ClientConnection(
                 player.clientConnection.handleStatus(player)
             } else if (handshake.nextState == 2) {
                 player.state = ConnectionState.LOGIN
-                val serverSocket = aSocket(selector).tcp().connect(
-                    "127.0.0.1", 25565
-                )
+                val rawLoginStart = player.clientConnection.readPacket()
+                val loginStart = LoginStartPacket.decode(rawLoginStart.data.peek())
+                player.username = loginStart.name
+
+                val serverSocket = try {
+                    aSocket(selector).tcp().connect("127.0.0.1", 25565)
+                } catch (e: Exception) {
+                    player.disconnect("Server is offline. Goodbye ${player.username}")
+                    return
+                }
+
                 val backend = ClientConnection(serverSocket, player.clientConnection.scope)
                 player.remoteConnection = backend
 
                 backend.sendRawPacket(rawHandshake.id, rawHandshake.data)
+                backend.sendRawPacket(rawLoginStart.id, rawLoginStart.data)
 
                 startBridge(player)
             }
         } catch (e: Exception) {
-            player.disconnect("Handshake failed: ${e.message}")
+            player.disconnect("Handshake failed for ${player.username}: ${e.message}")
         }
     }
     suspend fun startBridge(player: MinecraftPlayer) {

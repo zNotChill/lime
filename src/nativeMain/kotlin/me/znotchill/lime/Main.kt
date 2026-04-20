@@ -18,7 +18,6 @@ import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
 import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
-import me.znotchill.lime.utils.NetworkUtils
 import me.znotchill.lime.utils.bind
 import me.znotchill.lime.utils.toSocketAddress
 
@@ -60,6 +59,7 @@ fun main() = runBlocking {
         launch {
             val connection = ClientConnection(socket, proxyScope)
             val player = MinecraftPlayer(connection)
+            connection.player = player
 
             connection.handlePlayerSession(player, selectorManager)
         }
