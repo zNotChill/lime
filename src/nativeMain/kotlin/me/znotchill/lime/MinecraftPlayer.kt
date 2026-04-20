@@ -4,6 +4,7 @@ import io.ktor.network.sockets.Socket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import me.znotchill.lime.components.Component
+import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.registry.clientbound.configuation.ConfigDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.login.LoginDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.play.PlayDisconnectPacket
@@ -21,21 +22,25 @@ enum class ConnectionState {
 class MinecraftPlayer(
     val clientConnection: ClientConnection,
     var state: ConnectionState = ConnectionState.HANDSHAKE
-) {
+) : Loggable {
     var username: String = ""
+    override val loggerTag: String
+        get() = "Player@$username"
     var uuid: UUID = UUID(0L, 0L)
+
     var protocol: Int = 0
-    
+
     var remoteConnection: ClientConnection? = null
 
     suspend fun disconnect(reason: Component) {
-        // I have no idea why these are 3 different packets
         val packet = when (state) {
             ConnectionState.LOGIN -> LoginDisconnectPacket(reason)
             ConnectionState.CONFIGURATION -> ConfigDisconnectPacket(reason)
             ConnectionState.PLAY -> PlayDisconnectPacket(reason)
             else -> PlayDisconnectPacket(reason)
         }
+
+        log.i("Disconnected: \"${reason.toPlainText()}\"")
         clientConnection.sendPacket(packet)
         clientConnection.close()
         remoteConnection?.close()

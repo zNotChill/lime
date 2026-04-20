@@ -11,6 +11,7 @@ import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import me.znotchill.lime.events.PacketEventManager
 import me.znotchill.lime.generated.Packet
+import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.*
 import me.znotchill.lime.packets.payloads.StatusDescription
 import me.znotchill.lime.packets.payloads.StatusPayload
@@ -25,7 +26,8 @@ import me.znotchill.lime.zlib.ZLib
 class ClientConnection(
     private val socket: Socket,
     parentScope: CoroutineScope,
-) {
+) : Loggable {
+    override val loggerTag = "Conn@${socket.remoteAddress}"
     val readChannel = socket.openReadChannel()
     val writeChannel = socket.openWriteChannel(autoFlush = true)
     var protocol: Int = 0

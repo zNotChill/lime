@@ -6,11 +6,14 @@ import com.akuleshov7.ktoml.TomlInputConfig
 import com.akuleshov7.ktoml.TomlOutputConfig
 import kotlinx.serialization.modules.EmptySerializersModule
 import me.znotchill.lime.exceptions.SecurityException
+import me.znotchill.lime.log.Loggable
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 
-object DataManager {
+object DataManager : Loggable {
+    override val loggerTag = "Data"
+
     val fs = FileSystem.SYSTEM
     val baseDir = ".".toPath().resolve("lime").let {
         if (!fs.exists(it)) fs.createDirectories(it)
@@ -41,11 +44,11 @@ object DataManager {
 
     fun initialize() {
         holders.forEach { holder ->
-            println("Loading module: ${holder.id}")
+            log.i("Loading module: ${holder.id}")
             try {
                 holder.load()
             } catch (e: Exception) {
-                println("Failed to load ${holder.id}: ${e.message}")
+                log.e("Failed to load ${holder.id}: ${e.message}")
             }
         }
     }

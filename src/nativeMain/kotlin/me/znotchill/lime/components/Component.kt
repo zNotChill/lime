@@ -49,6 +49,8 @@ sealed class Component {
         }
     }
 
+    abstract fun toPlainText(): String
+
     companion object {
         fun text(value: String) = TextComponent(value)
         fun translatable(key: String) = TranslatableComponent(key)
@@ -93,6 +95,11 @@ data class TextComponent(
     fun onHover(event: HoverEvent) = copy(hoverEvent = event)
     fun append(vararg components: Component) = copy(extra = extra + components)
     operator fun plus(other: Component) = append(other)
+
+    override fun toPlainText(): String = buildString {
+        append(text)
+        extra.forEach { append(it.toPlainText()) }
+    }
 }
 
 data class TranslatableComponent(
@@ -109,4 +116,13 @@ data class TranslatableComponent(
         append("}")
     }
     fun with(vararg args: Component) = copy(with = with + args)
+
+    override fun toPlainText(): String = buildString {
+        append(key)
+        if (with.isNotEmpty()) {
+            append("[")
+            append(with.joinToString(", ") { it.toPlainText() })
+            append("]")
+        }
+    }
 }

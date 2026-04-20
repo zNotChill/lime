@@ -37,6 +37,7 @@ kotlin {
             implementation("io.ktor:ktor-network-tls:${ktor_version}")
             implementation("com.akuleshov7:ktoml-core:0.7.1")
             implementation("com.akuleshov7:ktoml-file:0.7.1")
+            implementation("co.touchlab:kermit:2.0.4")
             implementation(kotlin("reflect"))
         }
     }

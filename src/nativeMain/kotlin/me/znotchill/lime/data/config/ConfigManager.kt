@@ -6,13 +6,14 @@ import me.znotchill.lime.data.DataHolder
 import me.znotchill.lime.data.DataManager
 
 object ConfigManager : DataHolder {
+    override val loggerTag = "Config"
     override val id = "config"
     lateinit var server: LimeConfig
 
     override fun load() {
         val file = getFile("server.toml")
         if (!DataManager.fs.exists(file)) {
-            println("Creating default server.toml...")
+            log.i("Creating default server.toml...")
             server = LimeConfig(
                 status = StatusConfig(),
                 servers = ServersConfig(

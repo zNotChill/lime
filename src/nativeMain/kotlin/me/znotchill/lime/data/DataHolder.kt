@@ -1,9 +1,10 @@
 package me.znotchill.lime.data
 
 import me.znotchill.lime.exceptions.SecurityException
+import me.znotchill.lime.log.Loggable
 import okio.Path
 
-interface DataHolder {
+interface DataHolder : Loggable {
     /**
      * The name of the folder that this [DataHolder] owns
      * (e.g. "config", "stats")
