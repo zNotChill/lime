@@ -1,27 +1,22 @@
 package me.znotchill.lime.client
 
-import io.ktor.network.selector.*
-import io.ktor.network.sockets.*
-import kotlinx.coroutines.*
-import me.znotchill.lime.LimeProxy
-import me.znotchill.lime.ProxyPhase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.client.connection.ClientConnection
 import me.znotchill.lime.client.pipeline.SessionPipeline
+import me.znotchill.lime.client.pipeline.SessionSwitcher
 import me.znotchill.lime.components.Component
-import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.generated.Identifiable
 import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.RawPacket
 import me.znotchill.lime.packets.registry.clientbound.configuation.ConfigDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.login.LoginDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.play.PlayDisconnectPacket
-import me.znotchill.lime.packets.registry.clientbound.play.StartConfigurationPacket
 import me.znotchill.lime.packets.registry.clientbound.play.SystemChatPacket
-import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
-import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
-import me.znotchill.lime.servers.ServerManager
+import me.znotchill.lime.servers.Server
 import me.znotchill.lime.utils.UUID
 
 enum class ConnectionState {
@@ -41,16 +36,17 @@ class MinecraftPlayer(
     var username: String = ""
     override val loggerTag: String
         get() = "Player@$username"
+
     var uuid: UUID = UUID(0L, 0L)
-
     var protocol: Int = 0
-    var remoteConnection: BackendConnection? = null
 
+    var remoteConnection: BackendConnection? = null
     lateinit var pipeline: SessionPipeline
-    var pendingServerSwitch: String? = null
 
     lateinit var handshakePacket: RawPacket
-    lateinit var loginStartPacket: RawPacket
+    lateinit var currentServer: Server
+
+    val switcher = SessionSwitcher(this)
 
     fun getPacketId(packet: Identifiable, stateOverride: ConnectionState? = null): Int {
         val targetState = stateOverride ?: this.state
@@ -96,88 +92,17 @@ class MinecraftPlayer(
         disconnect(Component.text(reason))
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    suspend fun switchServer(serverName: String, selector: SelectorManager = LimeProxy.selectorManager): Boolean {
-        val startConfig = StartConfigurationPacket()
-        clientConnection.sendPacket(startConfig)
-
-        pendingServerSwitch = serverName
-        return true
+    suspend fun send(component: Component) {
+        clientConnection.sendPacket(SystemChatPacket(component, false))
     }
 
-    suspend fun performBackendSwitch(serverName: String, selector: SelectorManager) {
-        val server = ServerManager.get(serverName) ?: run {
-            log.e("Server $serverName not found during switch")
-            disconnect("Server not found: $serverName")
-            return
-        }
-
-        log.i("Connecting to $serverName...")
-
-        pipeline.phase = ProxyPhase.SWITCHING
-        pipeline.droppingBackendPackets = true
-
-        val serverSocket = try {
-            withTimeout(ConfigManager.server.socketTimeout) {
-                aSocket(selector).tcp().connect(server.address.host, server.address.port)
-            }
-        } catch (e: Exception) {
-            log.e("Connect failed: ${e.message}")
-            disconnect("Failed to connect to $serverName")
-            return
-        }
-
-        try {
-            pipeline.backendReaderScope?.cancel()
-            pipeline.backend?.socket?.close()
-            remoteConnection?.close()
-
-            val backend = BackendConnection(serverSocket, scope)
-            pipeline.backend = backend
-            remoteConnection = backend
-
-            backendState = ConnectionState.LOGIN
-//            clientConnection.compressionThreshold = -1
-            backend.compressionThreshold = -1
-
-            pipeline.droppingBackendPackets = false
-
-            backend.protocol = this.protocol
-            val handshake = HandshakePacket(
-                protocolVersion = this.protocol,
-                serverAddress = server.address.host,
-                serverPort = server.address.port,
-                nextState = 2
-            )
-
-            backend.sendPacket(handshake, ConnectionState.HANDSHAKE)
-
-            val loginStart = LoginStartPacket(
-                name = this.username,
-                uuid = this.uuid
-            )
-
-            pipeline.startBackendReader(this@MinecraftPlayer)
-            backend.sendPacket(loginStart, ConnectionState.LOGIN)
-
-            log.i("Backend switch completed to $serverName")
-        } catch (e: Exception) {
-            log.e("Backend switch failed: ${e.message}")
-            serverSocket.close()
-            disconnect("Server switch failed")
-        }
+    suspend fun send(text: String) {
+        clientConnection.sendPacket(SystemChatPacket(text, false))
     }
 
-    fun send(component: Component) {
-        val packet = SystemChatPacket(component, false)
-        clientConnection.scope.launch {
-            clientConnection.sendPacket(packet)
-        }
-    }
-    fun send(text: String) {
-        val packet = SystemChatPacket(text, false)
-        clientConnection.scope.launch {
-            clientConnection.sendPacket(packet)
+    fun queue(block: suspend () -> Unit = {}): Job {
+        return clientConnection.scope.launch {
+            block()
         }
     }
 }

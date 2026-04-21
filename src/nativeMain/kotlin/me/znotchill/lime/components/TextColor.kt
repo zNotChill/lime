@@ -1,27 +1,21 @@
 
 package me.znotchill.lime.components
 
-open class TextColor(val value: String) {
-    object Black : TextColor("black")
-    object DarkBlue : TextColor("dark_blue")
-    object DarkGreen : TextColor("dark_green")
-    object DarkAqua : TextColor("dark_aqua")
-    object DarkRed : TextColor("dark_red")
-    object DarkPurple : TextColor("dark_purple")
-    object Gold : TextColor("gold")
-    object Gray : TextColor("gray")
-    object DarkGray : TextColor("dark_gray")
-    object Blue : TextColor("blue")
-    object Green : TextColor("green")
-    object Aqua : TextColor("aqua")
-    object Red : TextColor("red")
-    object LightPurple : TextColor("light_purple")
-    object Yellow : TextColor("yellow")
-    object White : TextColor("white")
-
-    class Hex(hex: String) : TextColor(hex)
-
-    companion object {
-        fun hex(hex: String) = Hex(hex)
-    }
+object TextColor {
+    val Black       = Color.Named("black")
+    val DarkBlue    = Color.Named("dark_blue")
+    val DarkGreen   = Color.Named("dark_green")
+    val DarkAqua    = Color.Named("dark_aqua")
+    val DarkRed     = Color.Named("dark_red")
+    val DarkPurple  = Color.Named("dark_purple")
+    val Gold        = Color.Named("gold")
+    val Gray        = Color.Named("gray")
+    val DarkGray    = Color.Named("dark_gray")
+    val Blue        = Color.Named("blue")
+    val Green       = Color.Named("green")
+    val Aqua        = Color.Named("aqua")
+    val Red         = Color.Named("red")
+    val LightPurple = Color.Named("light_purple")
+    val Yellow      = Color.Named("yellow")
+    val White       = Color.Named("white")
 }

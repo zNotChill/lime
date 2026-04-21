@@ -1,10 +1,13 @@
 package me.znotchill.lime.events
 
 import me.znotchill.lime.MinecraftVersion
+import me.znotchill.lime.ServerColors
 import me.znotchill.lime.commands.CommandManager
 import me.znotchill.lime.commands.SuggestionType
 import me.znotchill.lime.commands.command
+import me.znotchill.lime.components.component
 import me.znotchill.lime.data.config.ConfigManager
+import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.payloads.StatusDescription
 import me.znotchill.lime.packets.payloads.StatusPayload
 import me.znotchill.lime.packets.payloads.StatusPlayers
@@ -22,17 +25,78 @@ import me.znotchill.lime.packets.registry.serverbound.status.PingRequestPacket
 import me.znotchill.lime.packets.registry.serverbound.status.StatusRequestPacket
 import me.znotchill.lime.servers.ServerManager
 
-object DefaultEvents {
+object DefaultEvents : Loggable {
+    override val loggerTag = "Default"
 
     private fun registerCommands() {
-        CommandManager.register(command("servers") {
+        CommandManager.register(command("server") {
             executes { ctx ->
-                ctx.player.send("Available servers: ${ServerManager.list().map { it.name }.joinToString { "," }}")
+                val currentServer = ctx.player.currentServer
+
+                ctx.player.queue {
+                    ctx.player.send(
+                        component {
+                            text("You are connected to") { color = ServerColors.primary }
+                            space()
+                            text(currentServer.name) { color = ServerColors.secondary }
+                            text(".") { color = ServerColors.primary }
+                        }
+                    )
+                    ctx.player.send(
+                        component {
+                            text("Available servers: ") { color = ServerColors.primary }
+                            ServerManager.list().forEachIndexed { i, server ->
+                                text(server.name) {
+                                    color = if (server == currentServer) ServerColors.successLight
+                                    else ServerColors.secondary
+                                }
+                                if (i < ServerManager.list().size - 1) {
+                                    text(", ") { color = ServerColors.primary }
+                                }
+                            }
+                        }
+                    )
+                }
             }
             argument("serverName") {
                 executes { ctx ->
+                    val currentServer = ctx.player.currentServer
                     val server = ctx.arg(0)
-                    ctx.player.switchServer(server)
+
+                    if (server.equals(currentServer.name, ignoreCase = true)) {
+                        ctx.player.send(
+                            component {
+                                text("You are already connected to") { color = ServerColors.error }
+                                space()
+                                text(server) { color = ServerColors.errorLight }
+                                text("!") { color = ServerColors.error }
+                            }
+                        )
+                        return@executes
+                    }
+
+                    ctx.player.send(
+                        component {
+                            text("Connecting to") { color = ServerColors.success }
+                            space()
+                            text(server) { color = ServerColors.successLight }
+                            text("...") { color = ServerColors.success }
+                        }
+                    )
+
+                    try {
+                        ctx.player.switcher.switchServer(server)
+                    } catch (e: Exception) {
+                        ctx.player.send(
+                            component {
+                                text("Failed to connect to") { color = ServerColors.error }
+                                space()
+                                text(server) { color = ServerColors.errorLight }
+                                text(": ") { color = ServerColors.error }
+                                text("${e.message ?: "Server is unreachable"}.") { color = ServerColors.errorMessage }
+                            }
+                        )
+                    }
                 }
                 suggests(SuggestionType.ASK_SERVER) { sctx ->
                     ServerManager.list().map { it.name }
@@ -84,7 +148,7 @@ object DefaultEvents {
 
         PacketEventManager.register<CommandPacket> { event ->
             val command = event.packet.command
-            println("${event.player.username} issued: /$command")
+            log.i("${event.player.username} issued: /$command")
             val root = command.split(" ").first()
 
             if (CommandManager.exists(root)) {
@@ -97,7 +161,7 @@ object DefaultEvents {
 
         PacketEventManager.register<ChatPacket> { event ->
             val msg = event.packet.message
-            println("${event.player.username}: $msg")
+            log.i("${event.player.username}: $msg")
         }
 
         PacketEventManager.register<TabCompleteRequestPacket> { event ->

@@ -84,7 +84,7 @@ sealed class Component {
                 "text" in obj -> {
                     TextComponent(
                         text = obj["text"]?.jsonPrimitive?.content ?: "",
-                        color = obj["color"]?.jsonPrimitive?.content?.let { TextColor(it) },
+                        color = obj["color"]?.jsonPrimitive?.content?.let { Color.fromString(it) },
                         bold = obj["bold"]?.jsonPrimitive?.booleanOrNull,
                         italic = obj["italic"]?.jsonPrimitive?.booleanOrNull,
                         underlined = obj["underlined"]?.jsonPrimitive?.booleanOrNull,
@@ -96,7 +96,7 @@ sealed class Component {
                 "translate" in obj -> {
                     TranslatableComponent(
                         key = obj["translate"]?.jsonPrimitive?.content ?: "",
-                        color = obj["color"]?.jsonPrimitive?.content?.let { TextColor(it) },
+                        color = obj["color"]?.jsonPrimitive?.content?.let { Color.fromString(it) },
                         with = obj["with"]?.jsonArray?.map { fromJsonElement(it) } ?: emptyList()
                     )
                 }
@@ -108,7 +108,7 @@ sealed class Component {
 
 data class TextComponent(
     val text: String,
-    val color: TextColor? = null,
+    val color: Color? = null,
     val bold: Boolean? = null,
     val italic: Boolean? = null,
     val underlined: Boolean? = null,
@@ -134,7 +134,7 @@ data class TextComponent(
         append("}")
     }
 
-    fun color(color: TextColor) = copy(color = color)
+    fun color(color: Color) = copy(color = color)
     fun bold() = copy(bold = true)
     fun italic() = copy(italic = true)
     fun underlined() = copy(underlined = true)
@@ -153,7 +153,7 @@ data class TextComponent(
 
 data class TranslatableComponent(
     val key: String,
-    val color: TextColor? = null,
+    val color: Color? = null,
     val with: List<Component> = emptyList()
 ) : Component() {
     override fun toJson(): String = buildString {
