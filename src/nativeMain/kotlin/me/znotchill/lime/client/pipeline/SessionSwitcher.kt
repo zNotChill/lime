@@ -82,7 +82,6 @@ class SessionSwitcher(
         if (pendingServerSwitch == null)
             throw IllegalStateException("No server switch pending")
         val server = pendingServerSwitch!!
-        pendingServerSwitch = null
 
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             performBackendSwitch(
@@ -149,6 +148,9 @@ class SessionSwitcher(
 
         val backend = player.remoteConnection
         val client = player.clientConnection
+        player.currentServer = player.switcher.pendingServerSwitch!!
+        player.switcher.pendingServerSwitch = null
+        player.switcher.newServerSwitchSocket = null
 
         if (backend != null) {
             client.compressionThreshold = backend.compressionThreshold
