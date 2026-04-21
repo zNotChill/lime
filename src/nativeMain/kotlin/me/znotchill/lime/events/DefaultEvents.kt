@@ -84,9 +84,7 @@ object DefaultEvents : Loggable {
                         }
                     )
 
-                    try {
-                        ctx.player.switcher.switchServer(server)
-                    } catch (e: Exception) {
+                    ctx.player.switcher.switchServer(server) { e ->
                         ctx.player.send(
                             component {
                                 text("Failed to connect to") { color = ServerColors.error }

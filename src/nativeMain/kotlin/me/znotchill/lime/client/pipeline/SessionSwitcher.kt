@@ -51,22 +51,29 @@ class SessionSwitcher(
         }
     }
 
-    suspend fun switchServer(serverName: String, selector: SelectorManager = LimeProxy.selectorManager): Boolean {
+    fun switchServer(
+        serverName: String,
+        selector: SelectorManager = LimeProxy.selectorManager,
+        onError: suspend (Exception) -> Unit = {}
+    ) {
         val server = ServerManager.get(serverName) ?: run {
-            throw InvalidServerException("Server does not exist")
+            player.scope.launch { onError(InvalidServerException("Server does not exist")) }
+            return
         }
 
-        val socket = try {
-            initBackendConnection(server, selector)
-        } catch (e: Exception) {
-            throw NoConnectionException(e.message ?: "Failed to connect")
-        }
+        player.scope.launch {
+            val socket = try {
+                initBackendConnection(server, selector)
+            } catch (e: Exception) {
+                onError(NoConnectionException(e.message ?: "Failed to connect"))
+                return@launch
+            }
 
-        val startConfig = StartConfigurationPacket()
-        player.clientConnection.sendPacket(startConfig)
-        pendingServerSwitch = server
-        newServerSwitchSocket = socket
-        return true
+            val startConfig = StartConfigurationPacket()
+            player.clientConnection.sendPacket(startConfig)
+            pendingServerSwitch = server
+            newServerSwitchSocket = socket
+        }
     }
 
     fun handleConfigSwitch(selector: SelectorManager) {
@@ -94,21 +101,10 @@ class SessionSwitcher(
         player.pipeline.phase = ProxyPhase.SWITCHING
         player.pipeline.droppingBackendPackets = true
         try {
-            player.pipeline.backendReaderScope?.cancel()
-            player.pipeline.backend?.socket?.close()
-            player.remoteConnection?.close()
-
             val backend = BackendConnection(serverSocket, player.scope)
-            player.pipeline.backend = backend
-            player.remoteConnection = backend
-
-            player.backendState = ConnectionState.LOGIN
-//            clientConnection.compressionThreshold = -1
             backend.compressionThreshold = -1
-
-            player.pipeline.droppingBackendPackets = false
-
             backend.protocol = player.protocol
+
             val handshake = HandshakePacket(
                 protocolVersion = player.protocol,
                 serverAddress = server.address.host,
@@ -123,9 +119,17 @@ class SessionSwitcher(
                 uuid = player.uuid
             )
 
-            player.pipeline.startBackendReader(player)
             backend.sendPacket(loginStart, ConnectionState.LOGIN)
 
+            player.pipeline.backendReaderScope?.cancel()
+            player.pipeline.backend?.socket?.close()
+            player.remoteConnection?.close()
+
+            player.pipeline.backend = backend
+            player.remoteConnection = backend
+            player.backendState = ConnectionState.LOGIN
+
+            player.pipeline.startBackendReader(player)
             log.i("Backend switch completed to ${server.name}")
         } catch (e: Exception) {
             log.e("Backend switch failed: ${e.message}")
