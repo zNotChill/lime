@@ -14,7 +14,7 @@ import me.znotchill.lime.nbt.NbtString
 import me.znotchill.lime.nbt.nbtCompound
 import me.znotchill.lime.utils.escapeJson
 
-@Serializable
+@Serializable(with = ComponentSerializer::class)
 sealed class Component {
     abstract fun toJson(): String
 

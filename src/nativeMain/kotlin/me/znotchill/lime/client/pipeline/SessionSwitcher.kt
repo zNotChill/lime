@@ -20,6 +20,7 @@ import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.exceptions.InvalidServerException
 import me.znotchill.lime.exceptions.NoConnectionException
 import me.znotchill.lime.log.Loggable
+import me.znotchill.lime.packets.registry.clientbound.play.PlayDisconnectPacket
 import me.znotchill.lime.packets.registry.clientbound.play.StartConfigurationPacket
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
@@ -119,6 +120,13 @@ class SessionSwitcher(
             )
 
             backend.sendPacket(loginStart, ConnectionState.LOGIN)
+            val oldBackend = player.pipeline.backend
+            if (oldBackend != null) {
+                try {
+                    val disconnect = PlayDisconnectPacket("Transferred to another server")
+                    oldBackend.sendPacket(disconnect, ConnectionState.PLAY)
+                } catch (_: Exception) {}
+            }
 
             player.pipeline.backendReaderScope?.cancel()
             player.pipeline.backend?.socket?.close()

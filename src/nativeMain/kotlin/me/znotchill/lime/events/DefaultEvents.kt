@@ -1,5 +1,6 @@
 package me.znotchill.lime.events
 
+import kotlinx.serialization.json.Json
 import me.znotchill.lime.MinecraftVersion
 import me.znotchill.lime.ServerColors
 import me.znotchill.lime.commands.CommandManager
@@ -8,7 +9,6 @@ import me.znotchill.lime.commands.command
 import me.znotchill.lime.components.component
 import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.log.Loggable
-import me.znotchill.lime.packets.payloads.StatusDescription
 import me.znotchill.lime.packets.payloads.StatusPayload
 import me.znotchill.lime.packets.payloads.StatusPlayers
 import me.znotchill.lime.packets.payloads.StatusVersion
@@ -108,6 +108,9 @@ object DefaultEvents : Loggable {
         registerCommands()
 
         PacketEventManager.register<StatusRequestPacket> { event ->
+            val motd = MiniMessage.parse(
+                ConfigManager.server.status.motd
+            )
             event.player.clientConnection.sendPacket(
                 StatusResponsePacket(
                     StatusPayload(
@@ -119,9 +122,7 @@ object DefaultEvents : Loggable {
                             max = 50000,
                             online = 1000
                         ),
-                        description = StatusDescription(
-                            text = ConfigManager.server.status.motd
-                        )
+                        description = Json.parseToJsonElement(motd.toJson())
                     )
                 )
             )

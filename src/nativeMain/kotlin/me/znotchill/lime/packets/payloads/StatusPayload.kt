@@ -2,12 +2,13 @@ package me.znotchill.lime.packets.payloads
 
 import me.znotchill.lime.MinecraftVersion
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class StatusPayload(
     val version: StatusVersion,
     val players: StatusPlayers,
-    val description: StatusDescription,
+    val description: JsonElement,
 )
 
 @Serializable
@@ -20,9 +21,4 @@ data class StatusVersion(
 data class StatusPlayers(
     val max: Int = 0,
     val online: Int = 0
-)
-
-@Serializable
-data class StatusDescription(
-    val text: String
 )
