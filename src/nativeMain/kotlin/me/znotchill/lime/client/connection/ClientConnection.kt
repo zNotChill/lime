@@ -3,7 +3,7 @@ package me.znotchill.lime.client.connection
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.withTimeout
+import me.znotchill.lime.LimeProxy
 import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.PipeDirection
@@ -11,8 +11,7 @@ import me.znotchill.lime.client.ServerConnectionResponse
 import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.MinecraftPacket
-import me.znotchill.lime.servers.ServerManager
-import me.znotchill.lime.utils.toSocketAddress
+import me.znotchill.lime.servers.Server
 
 class ClientConnection(
     socket: Socket,
@@ -48,40 +47,29 @@ class ClientConnection(
         }
 
         tryList.forEach { serverName ->
-            val server = ConfigManager.server.servers.servers[serverName]
-            if (server == null) {
-                log.e("Misconfigured server \"$serverName\"! Defined in try list, but the server config is absent!")
-                player.disconnect("Misconfigured server! Check logs for more info!")
-                return null
+            val resolveResult = LimeProxy.defaultResolver.resolveServer(
+                serverName,
+                player = null,
+                selector
+            )
+
+            if (resolveResult.failReason != null) {
+                player.disconnect(resolveResult.failReason)
+                return@forEach
             }
 
-            val address = server.toSocketAddress()
+            if (!resolveResult.success) return@forEach
+            if (resolveResult.socket == null) return@forEach
+            if (resolveResult.address == null) return@forEach
 
-            val serverSocket = try {
-                log.i("Connecting to $address")
-                withTimeout(ConfigManager.server.socketTimeout) {
-                    aSocket(selector).tcp().connect(address.host, address.port)
-                }
-            } catch (e: Exception) {
-                log.e("Cannot connect to ${address.host}:${address.port}: ${e.message}")
-                null
-            }
-
-            val serverObject = ServerManager.get(serverName)
-            if (serverObject == null) {
-                // this is a big issue if we reach this
-                log.e("Misconfigured server \"$serverName\"! Defined in try list and hosts but the server is not registered!")
-                player.disconnect("Server is not registered! Check logs for more info!")
-                return null
-            }
-
-            if (serverSocket != null) {
-                return ServerConnectionResponse(
-                    address,
-                    serverObject,
-                    serverSocket
-                )
-            }
+            return ServerConnectionResponse(
+                server = Server(
+                    name = serverName,
+                    address = resolveResult.address,
+                    isVelocity = false
+                ),
+                socket = resolveResult.socket
+            )
         }
 
         return null

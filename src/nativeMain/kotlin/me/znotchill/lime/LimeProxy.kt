@@ -26,6 +26,7 @@ import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPac
 import me.znotchill.lime.packets.registry.serverbound.status.PingRequestPacket
 import me.znotchill.lime.packets.registry.serverbound.status.StatusRequestPacket
 import me.znotchill.lime.registries.PacketProtocolRegistry
+import me.znotchill.lime.resolvers.LimeServerResolver
 import me.znotchill.lime.servers.ServerManager
 import me.znotchill.lime.utils.bind
 import me.znotchill.lime.utils.toSocketAddress
@@ -39,6 +40,8 @@ class LimeProxy : Loggable {
     override val loggerTag = "Main"
     companion object {
         val selectorManager = SelectorManager(Dispatchers.Default)
+
+        var defaultResolver = LimeServerResolver
     }
 
     suspend fun start() = run {
