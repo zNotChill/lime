@@ -40,9 +40,13 @@ class ClientConnection(
     // server shutdowns, we can find a server and connect all players to it at once
     // instead of trying all servers for each player
     suspend fun tryAllServers(selector: SelectorManager): ServerConnectionResponse? {
-        val tryList = ConfigManager.server.servers.tryList
+        val tryList = LimeProxy.defaultResolver.getTryList(
+            player = null,
+            selector = selector
+        )
+
         if (tryList.isEmpty()) {
-            player.disconnect("No configured try ist!")
+            player.disconnect("No try list for resolver!")
             return null
         }
 

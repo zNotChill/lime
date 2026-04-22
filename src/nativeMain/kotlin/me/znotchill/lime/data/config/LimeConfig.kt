@@ -21,7 +21,7 @@ data class ServersConfig(
 
 @Serializable
 data class StatusConfig(
-    val bind: String = "0.0.0.0:25565",
-    val motd: String = "&#99e550A Lime Server",
+    val bind: String = "127.0.0.1:25565",
+    val motd: String = "<#99e550>A Lime Server",
     @SerialName("max-players") val showMaxPlayers: Int = 500,
 )

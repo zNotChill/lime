@@ -35,12 +35,12 @@ object NetworkUtils {
             // only 1 colon so it's ipv4
             val host = trimmed.take(lastColon)
             val port = trimmed.substring(lastColon + 1).toIntOrNull() ?: defaultPort
-            SocketAddress(host.ifEmpty { "0.0.0.0" }, port)
+            SocketAddress(host.ifEmpty { "127.0.0.1" }, port)
         } else if (lastColon != -1) {
             // ipv6 no port
             SocketAddress(trimmed, defaultPort)
         } else {
-            SocketAddress(trimmed.ifEmpty { "0.0.0.0" }, defaultPort)
+            SocketAddress(trimmed.ifEmpty { "127.0.0.1" }, defaultPort)
         }
     }
 }

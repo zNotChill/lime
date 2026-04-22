@@ -3,9 +3,10 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinxSerialization)
+    `maven-publish`
 }
 
-group = "me.user"
+group = "me.znotchill"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -40,5 +41,29 @@ kotlin {
             implementation("co.touchlab:kermit:2.0.4")
             implementation(kotlin("reflect"))
         }
+    }
+}
+
+
+
+
+publishing {
+    publications.withType<MavenPublication>().configureEach {
+        artifactId = artifactId
+            .replace("macosarm64", "macos-arm64")
+            .replace("linuxarm64", "linux-arm64")
+            .replace("linuxx64", "linux-x64")
+            .replace("mingwx64", "windows")
+    }
+    repositories {
+        maven {
+            name = "znotchill"
+            url = uri("https://repo.znotchill.me/repository/maven-releases/")
+            credentials {
+                username = findProperty("zRepoUsername") as String? ?: System.getenv("MAVEN_USER")
+                password = findProperty("zRepoPassword") as String? ?: System.getenv("MAVEN_PASS")
+            }
+        }
+        mavenLocal()
     }
 }

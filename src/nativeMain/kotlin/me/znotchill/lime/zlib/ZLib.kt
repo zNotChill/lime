@@ -52,14 +52,16 @@ object ZLib {
         return data.usePinned { pinnedData ->
             resultBuffer.usePinned { pinnedResult ->
                 memScoped {
-                    val destLen = alloc<ULongVar>()
-                    destLen.value = maxCompressedSize.toULong()
+                    val destLen = alloc<UIntVar>()
+                    destLen.value = maxCompressedSize.toUInt()
 
                     val status = compress(
                         pinnedResult.addressOf(0).reinterpret(),
                         destLen.ptr.reinterpret(),
                         pinnedData.addressOf(0).reinterpret(),
-                        data.size.toUInt()
+
+                        // use convert(), since linux and windows expect different types 😡
+                        data.size.convert()
                     )
 
                     if (status != Z_OK) throw RuntimeException("Compression failed")
