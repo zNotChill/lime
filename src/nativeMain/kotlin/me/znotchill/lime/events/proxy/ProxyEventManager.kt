@@ -1,35 +1,35 @@
-package me.znotchill.lime.events
+package me.znotchill.lime.events.proxy
 
 import me.znotchill.lime.client.MinecraftPlayer
+import me.znotchill.lime.events.EventPriority
 import me.znotchill.lime.log.Loggable
-import me.znotchill.lime.packets.MinecraftPacket
 import kotlin.reflect.KClass
 
-object PacketEventManager : Loggable {
+object ProxyEventManager : Loggable {
     override val loggerTag = "Events"
-    class RegisteredHandler<T : MinecraftPacket>(
+    class RegisteredHandler<T : ProxyEvent>(
         val priority: EventPriority,
-        val handler: PacketHandler<T>
+        val handler: ProxyEventHandler<T>
     )
 
     val handlers = mutableMapOf<KClass<*>, MutableList<RegisteredHandler<*>>>()
 
-    inline fun <reified T : MinecraftPacket> register(
+    inline fun <reified T : ProxyEvent> register(
         priority: EventPriority = EventPriority.NORMAL,
-        handler: PacketHandler<T>
+        handler: ProxyEventHandler<T>
     ) {
         val list = handlers.getOrPut(T::class) { mutableListOf() }
         list.add(RegisteredHandler(priority, handler))
         list.sortByDescending { it.priority.ordinal }
     }
 
-    suspend fun <T : MinecraftPacket> emit(player: MinecraftPlayer, packet: T): Boolean {
-        val packetHandlers = handlers[packet::class] ?: return false
-        val context = PacketEventContext(player, packet)
+    fun <T : ProxyEvent> emit(player: MinecraftPlayer, event: T): Boolean {
+        val eventHandlers = handlers[event::class] ?: return false
+        val context = ProxyEventContext(player, event)
 
-        for (registered in packetHandlers) {
+        for (registered in eventHandlers) {
             @Suppress("UNCHECKED_CAST")
-            val handler = registered.handler as PacketHandler<T>
+            val handler = registered.handler as ProxyEventHandler<T>
 
             handler.handle(context)
 

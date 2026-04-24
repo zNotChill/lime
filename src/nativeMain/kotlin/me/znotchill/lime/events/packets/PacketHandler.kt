@@ -1,4 +1,4 @@
-package me.znotchill.lime.events
+package me.znotchill.lime.events.packets
 
 import me.znotchill.lime.packets.MinecraftPacket
 

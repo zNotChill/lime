@@ -20,7 +20,10 @@ import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.client.connection.ClientConnection
-import me.znotchill.lime.events.PacketEventManager
+import me.znotchill.lime.events.packets.PacketEventManager
+import me.znotchill.lime.events.proxy.ProxyEventManager
+import me.znotchill.lime.events.proxy.registry.PlayerJoinEvent
+import me.znotchill.lime.events.proxy.registry.PlayerQuitEvent
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.PacketRegistry
@@ -28,6 +31,7 @@ import me.znotchill.lime.packets.RawPacket
 import me.znotchill.lime.packets.readVarInt
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
+import me.znotchill.lime.utils.UUID
 
 class SessionPipeline(
     val client: ClientConnection,
@@ -66,10 +70,17 @@ class SessionPipeline(
             // do nothing, since it will error every time a user
             // refreshes the multiplayer menu, or disconnects from the server,
             // or if anything goes wrong where the player stops getting a stream of data
-        }
-        catch (e: Exception) {
-            println(e)
+        } catch (e: Exception) {
             if (running) stop("Client reader died: ${e.message}")
+        } finally {
+            // only send the quit event if the player has made it past the login start
+            // stage (where their username and uuid is populated)
+            // to avoid triggering the event from server list pings
+            if (player.username.isNotEmpty() && player.uuid != UUID(0L, 0L))
+                ProxyEventManager.emit(
+                    player,
+                    PlayerQuitEvent()
+                )
         }
     }
 
@@ -185,6 +196,9 @@ class SessionPipeline(
                     backend = newBackend
                     player.remoteConnection = newBackend
                     player.currentServer = response.server
+
+                    player.currentServer.addPlayer(player)
+
                     startBackendReader(player)
 
                     player.handshakePacket.let {
@@ -192,6 +206,11 @@ class SessionPipeline(
                     }
 
                     newBackend.sendRawPacket(packet.id, packet.data.peek())
+
+                    ProxyEventManager.emit(
+                        player,
+                        PlayerJoinEvent()
+                    )
                 } else {
                     backend?.sendRawPacket(packet.id, packet.data)
                 }

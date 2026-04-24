@@ -17,6 +17,9 @@ import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.data.config.ConfigManager
+import me.znotchill.lime.events.proxy.ProxyEventManager
+import me.znotchill.lime.events.proxy.registry.PlayerServerSwitchEvent
+import me.znotchill.lime.events.proxy.registry.PlayerServerSwitchStartEvent
 import me.znotchill.lime.exceptions.InvalidServerException
 import me.znotchill.lime.exceptions.NoConnectionException
 import me.znotchill.lime.log.Loggable
@@ -55,18 +58,33 @@ class SessionSwitcher(
     fun switchServer(
         serverName: String,
         selector: SelectorManager = LimeProxy.selectorManager,
-        onError: suspend (Exception) -> Unit = {}
+        onError: suspend (Exception, Server?) -> Unit = { _, _ -> }
     ) {
         val server = ServerManager.get(serverName) ?: run {
-            player.scope.launch { onError(InvalidServerException("Server does not exist")) }
+            player.scope.launch {
+                onError(
+                    InvalidServerException("Server does not exist"),
+                    null
+                )
+            }
             return
         }
+
+        ProxyEventManager.emit(
+            player,
+            PlayerServerSwitchStartEvent(
+                server
+            )
+        )
 
         player.scope.launch {
             val socket = try {
                 initBackendConnection(server, selector)
             } catch (e: Exception) {
-                onError(NoConnectionException(e.message ?: "Failed to connect"))
+                onError(
+                    NoConnectionException(e.message ?: "Failed to connect"),
+                    server
+                )
                 return@launch
             }
 
@@ -156,13 +174,23 @@ class SessionSwitcher(
 
         val backend = player.remoteConnection
         val client = player.clientConnection
+
+        val switchEvent = PlayerServerSwitchEvent(
+            previousServer = player.currentServer,
+            newServer = player.switcher.pendingServerSwitch!!
+        )
+
         player.currentServer = player.switcher.pendingServerSwitch!!
+        player.currentServer.addPlayer(player)
+
         player.switcher.pendingServerSwitch = null
         player.switcher.newServerSwitchSocket = null
 
         if (backend != null) {
             client.compressionThreshold = backend.compressionThreshold
         }
+
+        ProxyEventManager.emit(player, switchEvent)
 
         log.i("Switch complete")
     }

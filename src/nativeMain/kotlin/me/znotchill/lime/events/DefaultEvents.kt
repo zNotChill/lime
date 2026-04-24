@@ -1,5 +1,6 @@
 package me.znotchill.lime.events
 
+import MiniMessage
 import kotlinx.serialization.json.Json
 import me.znotchill.lime.MinecraftVersion
 import me.znotchill.lime.ServerColors
@@ -8,6 +9,12 @@ import me.znotchill.lime.commands.SuggestionType
 import me.znotchill.lime.commands.command
 import me.znotchill.lime.components.component
 import me.znotchill.lime.data.config.ConfigManager
+import me.znotchill.lime.events.packets.PacketEventManager
+import me.znotchill.lime.events.proxy.ProxyEventManager
+import me.znotchill.lime.events.proxy.registry.PlayerChatEvent
+import me.znotchill.lime.events.proxy.registry.PlayerCommandEvent
+import me.znotchill.lime.events.proxy.registry.PlayerLoginEvent
+import me.znotchill.lime.events.proxy.registry.PlayerServerSwitchFailedEvent
 import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.payloads.StatusPayload
 import me.znotchill.lime.packets.payloads.StatusPlayers
@@ -84,7 +91,14 @@ object DefaultEvents : Loggable {
                         }
                     )
 
-                    ctx.player.switcher.switchServer(server) { e ->
+                    ctx.player.switcher.switchServer(server) { e, s ->
+                        ProxyEventManager.emit(
+                            ctx.player,
+                            PlayerServerSwitchFailedEvent(
+                                newServer = s,
+                                reason = e.message ?: "Unknown"
+                            )
+                        )
                         ctx.player.send(
                             component {
                                 text("Failed to connect to") { color = ServerColors.error }
@@ -107,6 +121,14 @@ object DefaultEvents : Loggable {
     fun register() {
         registerCommands()
 
+//        ProxyEventManager.register<PlayerJoinEvent> { event ->
+//            println("${event.player.username} joined!")
+//        }
+//
+//        ProxyEventManager.register<PlayerQuitEvent> { event ->
+//            println("${event.player.username} left!")
+//        }
+
         PacketEventManager.register<StatusRequestPacket> { event ->
             val motd = MiniMessage.parse(
                 ConfigManager.server.status.motd
@@ -115,8 +137,8 @@ object DefaultEvents : Loggable {
                 StatusResponsePacket(
                     StatusPayload(
                         version = StatusVersion(
-                            name = "Hello",
-                            protocol = MinecraftVersion.`1_21_11`
+                            name = "Lime",
+                            protocol = MinecraftVersion.fromProtocol(event.player.protocol) ?: MinecraftVersion.`1_21_11`
                         ),
                         players = StatusPlayers(
                             max = 50000,
@@ -127,6 +149,7 @@ object DefaultEvents : Loggable {
                 )
             )
         }
+
         PacketEventManager.register<PingRequestPacket> { event ->
             event.player.clientConnection.sendPacket(
                 PingResponsePacket(event.packet.time)
@@ -136,6 +159,7 @@ object DefaultEvents : Loggable {
         PacketEventManager.register<LoginStartPacket> { event ->
             event.player.username = event.packet.name
             event.player.uuid = event.packet.uuid
+            ProxyEventManager.emit(event.player, PlayerLoginEvent())
         }
 
         PacketEventManager.register<CommandsPacket> { event ->
@@ -147,6 +171,14 @@ object DefaultEvents : Loggable {
 
         PacketEventManager.register<CommandPacket> { event ->
             val command = event.packet.command
+
+            ProxyEventManager.emit(
+                event.player,
+                PlayerCommandEvent(
+                    command
+                )
+            )
+
             log.i("${event.player.username} issued: /$command")
             val root = command.split(" ").first()
 
@@ -161,6 +193,13 @@ object DefaultEvents : Loggable {
         PacketEventManager.register<ChatPacket> { event ->
             val msg = event.packet.message
             log.i("${event.player.username}: $msg")
+
+            ProxyEventManager.emit(
+                event.player,
+                PlayerChatEvent(
+                    msg
+                )
+            )
         }
 
         PacketEventManager.register<TabCompleteRequestPacket> { event ->

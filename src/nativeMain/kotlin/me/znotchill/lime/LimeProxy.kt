@@ -44,8 +44,7 @@ val json = Json {
 
 open class LimeProxy : LimeAddon(
     "Lime",
-    authors = listOf("zNotChill", "Me"),
-
+    authors = listOf("zNotChill")
 ) {
     companion object {
         lateinit var instance: LimeProxy
@@ -64,7 +63,6 @@ open class LimeProxy : LimeAddon(
     }
 
     val proxyScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
     private val addons: MutableList<LimeAddon> = mutableListOf()
 
     fun registerAddon(addon: LimeAddon) {
