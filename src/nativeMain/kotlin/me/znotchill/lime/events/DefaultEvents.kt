@@ -13,7 +13,9 @@ import me.znotchill.lime.events.packets.PacketEventManager
 import me.znotchill.lime.events.proxy.ProxyEventManager
 import me.znotchill.lime.events.proxy.registry.PlayerChatEvent
 import me.znotchill.lime.events.proxy.registry.PlayerCommandEvent
+import me.znotchill.lime.events.proxy.registry.PlayerJoinEvent
 import me.znotchill.lime.events.proxy.registry.PlayerLoginEvent
+import me.znotchill.lime.events.proxy.registry.PlayerQuitEvent
 import me.znotchill.lime.events.proxy.registry.PlayerServerSwitchFailedEvent
 import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.payloads.StatusPayload
@@ -30,6 +32,7 @@ import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
 import me.znotchill.lime.packets.registry.serverbound.play.TabCompleteRequestPacket
 import me.znotchill.lime.packets.registry.serverbound.status.PingRequestPacket
 import me.znotchill.lime.packets.registry.serverbound.status.StatusRequestPacket
+import me.znotchill.lime.players.PlayerManager
 import me.znotchill.lime.servers.ServerManager
 
 object DefaultEvents : Loggable {
@@ -121,13 +124,13 @@ object DefaultEvents : Loggable {
     fun register() {
         registerCommands()
 
-//        ProxyEventManager.register<PlayerJoinEvent> { event ->
-//            println("${event.player.username} joined!")
-//        }
-//
-//        ProxyEventManager.register<PlayerQuitEvent> { event ->
-//            println("${event.player.username} left!")
-//        }
+        ProxyEventManager.register<PlayerJoinEvent>(EventPriority.HIGHEST) { event ->
+            PlayerManager.add(event.player)
+        }
+
+        ProxyEventManager.register<PlayerQuitEvent>(EventPriority.HIGHEST) { event ->
+            PlayerManager.remove(event.player)
+        }
 
         PacketEventManager.register<StatusRequestPacket> { event ->
             val motd = MiniMessage.parse(
@@ -142,7 +145,7 @@ object DefaultEvents : Loggable {
                         ),
                         players = StatusPlayers(
                             max = 50000,
-                            online = 1000
+                            online = PlayerManager.count()
                         ),
                         description = Json.parseToJsonElement(motd.toJson())
                     )
