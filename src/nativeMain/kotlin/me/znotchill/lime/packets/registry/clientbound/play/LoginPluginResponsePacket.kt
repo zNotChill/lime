@@ -25,7 +25,9 @@ class LoginPluginResponsePacket(
 
         fun decode(packet: Source): LoginPluginResponsePacket {
             val messageId = packet.readVarInt()
-            val data = packet.readByteArray()
+            packet.readBoolean()
+            val dataSize = packet.readVarInt()
+            val data = packet.readByteArray(dataSize)
 
             return LoginPluginResponsePacket(
                 messageId, data

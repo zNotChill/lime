@@ -8,7 +8,6 @@ import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.client.ServerConnectionResponse
-import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.packets.ClientPacket
 import me.znotchill.lime.packets.MinecraftPacket
 import me.znotchill.lime.servers.Server

@@ -27,11 +27,10 @@ object MojangCrypt {
     suspend fun digestData(
         serverId: String,
         publicKey: RSA.PKCS1.PublicKey,
-        secretKey: AES.Key,
+        secretKeyBytes: ByteArray,
     ): String {
         val digest = provider.get(SHA1).hasher()
         val publicKeyBytes = publicKey.encodeToByteArray(RSA.PublicKey.Format.DER)
-        val secretKeyBytes = secretKey.encodeToByteArray(AES.Key.Format.RAW)
         return digest.hash(
             serverId.toByteArray(Charsets.ISO_8859_1) +
                     secretKeyBytes +
@@ -47,12 +46,13 @@ object MojangCrypt {
         privateKey.decryptor().decrypt(bytes)
     }
 
+    @OptIn(DelicateCryptographyApi::class)
     suspend fun decryptByteToSecretKey(
         privateKey: RSA.PKCS1.PrivateKey,
         bytes: ByteArray,
-    ): AES.Key {
+    ): AES.CFB8.Key {
         val raw = decryptUsingKey(privateKey, bytes)
-        return provider.get(AES.CBC).keyDecoder().decodeFromByteArray(AES.Key.Format.RAW, raw)
+        return provider.get(AES.CFB8).keyDecoder().decodeFromByteArray(AES.Key.Format.RAW, raw)
     }
 
     @OptIn(DelicateCryptographyApi::class)

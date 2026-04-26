@@ -195,6 +195,7 @@ object DefaultEvents : Loggable {
         }
 
         PacketEventManager.register<LoginPluginRequestPacket> { event ->
+            event.cancel()
             println("server sent plugin req: ${event.packet.channel}")
 
             val player = event.player

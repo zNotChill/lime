@@ -145,7 +145,6 @@ class SessionSwitcher(
                     oldBackend.sendPacket(disconnect, ConnectionState.PLAY)
                 } catch (_: Exception) {}
             }
-
             player.pipeline.backendReaderScope?.cancel()
             player.pipeline.backend?.socket?.close()
             player.remoteConnection?.close()

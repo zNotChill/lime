@@ -1,17 +1,10 @@
 package me.znotchill.lime.client.pipeline
 
-import io.ktor.network.selector.SelectorManager
-import io.ktor.utils.io.core.remaining
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import io.ktor.network.selector.*
+import io.ktor.utils.io.core.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.io.Buffer
 import kotlinx.io.EOFException
@@ -30,6 +23,7 @@ import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.PacketRegistry
 import me.znotchill.lime.packets.RawPacket
 import me.znotchill.lime.packets.readVarInt
+import me.znotchill.lime.packets.registry.clientbound.login.LoginPluginRequestPacket
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.utils.UUID
@@ -111,7 +105,7 @@ class SessionPipeline(
                     inboundFromBackend.send(packet)
                 }
             } catch (_: CancellationException) {
-                // intentional, do nothing
+                stop("Backend reader stopped due to cancellation")
             } catch (e: Exception) {
                 stop("Backend reader died: ${e.message}")
             }
@@ -217,6 +211,7 @@ class SessionPipeline(
                 val finishId = player.getPacketId(Packet.Serverbound.Config.FinishConfiguration)
 
                 if (packet.id == finishId) {
+                    log.d("Received FINISH CONFIG state from player")
                     player.state = ConnectionState.PLAY
                 }
 
@@ -250,13 +245,23 @@ class SessionPipeline(
         if (phase == ProxyPhase.SWITCHING) {
             when (player.backendState) {
                 ConnectionState.LOGIN -> {
+                    val loginPluginRequestId = player.getPacketId(
+                        Packet.Clientbound.Login.LoginPluginRequest, ConnectionState.LOGIN
+                    )
                     when (packet.id) {
+                        loginPluginRequestId -> {
+                            PacketEventManager.emit(player,
+                                LoginPluginRequestPacket.decode(packet.data.peek()), packet)
+                        }
                         player.getPacketId(Packet.Clientbound.Login.Success, ConnectionState.LOGIN) -> {
                             player.backendState = ConnectionState.CONFIGURATION
-
-                            val loginAckId = player.getPacketId(Packet.Serverbound.Login.LoginAcknowledged, ConnectionState.LOGIN)
+                            val loginAckId = player.getPacketId(
+                                Packet.Serverbound.Login.LoginAcknowledged, ConnectionState.LOGIN)
                             backend?.sendRawPacket(loginAckId, Buffer())
                             return
+                        }
+                        else -> {
+                            backend?.let { handleLogin(player, packet) }
                         }
                     }
                 }
@@ -328,18 +333,18 @@ class SessionPipeline(
             }
 
             loginSuccessId -> {
-                client.sendRawPacket(packet.id, packet.data, forceUncompressed = true)
+
+                // ALWAYS ENSURE this is not using forceCompressed!!!!
+                client.sendRawPacket(packet.id, packet.data)
                 player.state = ConnectionState.CONFIGURATION
                 player.backendState = ConnectionState.CONFIGURATION
 
-                val loginAckId = player.getPacketId(
-                    Packet.Serverbound.Login.LoginAcknowledged,
-                    ConnectionState.LOGIN
-                )
-                backend?.sendRawPacket(loginAckId, Buffer())
+//                val loginAckId = player.getPacketId(
+//                    Packet.Serverbound.Login.LoginAcknowledged,
+//                    ConnectionState.LOGIN
+//                )
+//                backend?.sendRawPacket(loginAckId, Buffer())
             }
-
-            0x02 -> {}
 
             else -> client.sendRawPacket(packet.id, packet.data)
         }

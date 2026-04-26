@@ -1,19 +1,21 @@
 package me.znotchill.lime.client.connection
 
+import dev.whyoleg.cryptography.DelicateCryptographyApi
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.*
-import io.ktor.utils.io.core.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import me.znotchill.lime.client.ConnectionState
 import me.znotchill.lime.client.PipeDirection
+import me.znotchill.lime.crypt.CFB8State
 import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.*
 import me.znotchill.lime.registries.PacketProtocolRegistry
 import me.znotchill.lime.zlib.ZLib
 
+@OptIn(DelicateCryptographyApi::class)
 abstract class Connection(
     val socket: Socket,
     val scope: CoroutineScope
@@ -23,6 +25,38 @@ abstract class Connection(
 
     var compressionThreshold: Int = -1
     var protocol: Int = 0
+
+    private var encryptState: CFB8State? = null
+    private var decryptState: CFB8State? = null
+
+    fun enableEncryption(keyBytes: ByteArray) {
+        encryptState = CFB8State(keyBytes, keyBytes)
+        decryptState = CFB8State(keyBytes, keyBytes)
+    }
+
+
+    fun disableEncryption() {
+        encryptState = null
+        decryptState = null
+    }
+
+    private suspend fun readEncryptedByte(): Byte {
+        val b = readChannel.readByte()
+        return decryptState?.decryptByte(b) ?: b
+    }
+
+    private suspend fun readEncryptedVarInt(): Int {
+        var result = 0
+        var shift = 0
+        while (true) {
+            val b = readEncryptedByte().toInt() and 0xFF
+            result = result or ((b and 0x7F) shl shift)
+            if ((b and 0x80) == 0) break
+            shift += 7
+            if (shift >= 35) throw IllegalStateException("VarInt too large")
+        }
+        return result
+    }
 
     suspend fun sendPacket(
         packet: MinecraftPacket,
@@ -91,8 +125,9 @@ abstract class Connection(
                 out.write(innerBuffer.readByteArray())
             }
 
-            log.d("Sending to client: id=0x${id.toString(16)} compressed=${compressionThreshold != -1}")
-            writeChannel.writePacket(out.build())
+            val outBytes = out.readByteArray()
+            val finalBytes = encryptState?.encrypt(outBytes) ?: outBytes
+            writeChannel.writeFully(finalBytes)
             writeChannel.flush()
         } catch (e: Exception) {
             if (writeChannel.isClosedForWrite) return
@@ -100,14 +135,18 @@ abstract class Connection(
         }
     }
 
+
     suspend fun readPacket(): RawPacket {
-        val packetLength = readChannel.readVarInt()
-        val packetData = readChannel.readPacket(packetLength)
-        val temp = Buffer().apply { write(packetData.readByteArray()) }
+        val packetLength = readEncryptedVarInt()
+
+        val raw = ByteArray(packetLength)
+        readChannel.readFully(raw)
+
+        val decrypted = decryptState?.decrypt(raw) ?: raw
+        val temp = Buffer().apply { write(decrypted) }
 
         if (compressionThreshold != -1) {
             val uncompressedLength = temp.readVarInt()
-
             if (uncompressedLength == 0) {
                 val id = temp.readVarInt()
                 return RawPacket(id, temp.readByteArray())

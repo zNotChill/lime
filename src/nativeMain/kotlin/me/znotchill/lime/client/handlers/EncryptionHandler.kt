@@ -1,13 +1,16 @@
 package me.znotchill.lime.client.handlers
 
+import dev.whyoleg.cryptography.DelicateCryptographyApi
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
 import me.znotchill.lime.LimeProxy
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.crypt.MojangCrypt
 import me.znotchill.lime.httpClient
 import me.znotchill.lime.json
+import me.znotchill.lime.log.Loggable
 import me.znotchill.lime.packets.RawPacket
 import me.znotchill.lime.packets.registry.serverbound.login.EncryptionResponsePacket
 
@@ -25,10 +28,12 @@ data class MojangProperty(
     val signature: String? = null
 )
 
-object EncryptionHandler {
+object EncryptionHandler : Loggable {
+    override val loggerTag = "Encryption"
     /**
      * Called when the client sends an EncryptionResponse to the proxy
      */
+    @OptIn(DelicateCryptographyApi::class)
     suspend fun handleClientResponse(player: MinecraftPlayer, rawPacket: RawPacket) {
         val packet = EncryptionResponsePacket.decode(rawPacket.data.peek())
 
@@ -40,15 +45,17 @@ object EncryptionHandler {
             throw IllegalStateException("Nonce mismatch")
         }
 
-        val secretKey = MojangCrypt.decryptByteToSecretKey(
+        val secretKeyBytes = MojangCrypt.decryptUsingKey(
             LimeProxy.keypair.privateKey,
             packet.sharedSecret.toByteArray()
         )
+        player.clientConnection.enableEncryption(secretKeyBytes)
+        log.d("Enabled encryption")
 
         val serverHash = MojangCrypt.digestData(
             serverId = "",
             publicKey = LimeProxy.keypair.publicKey,
-            secretKey = secretKey
+            secretKeyBytes = secretKeyBytes
         )
 
         val joinResponse = httpClient.get("https://sessionserver.mojang.com/session/minecraft/hasJoined") {
@@ -60,6 +67,8 @@ object EncryptionHandler {
         val profile = json.decodeFromString<MojangProfile>(body)
         player.properties = profile.properties
 
+        log.d("Authenticated ${player.username} through Mojang! (${profile.id})")
+
         player.pipeline.awaitingEncryptionResponse = false
 
         LoginHandler.completeLogin(player)
@@ -69,6 +78,7 @@ object EncryptionHandler {
      * Called when the backend server sends an EncryptionRequest to the client
      */
     suspend fun handleBackendRequest(player: MinecraftPlayer, rawPacket: RawPacket) {
-
+        log.d("Backend sent encryption request. this should not happen with online-mode=false")
+        log.d("Raw packet hex: ${rawPacket.data.peek().readByteArray().joinToString(" ") { it.toInt().and(0xFF).toString(16).padStart(2, '0') }}")
     }
 }
