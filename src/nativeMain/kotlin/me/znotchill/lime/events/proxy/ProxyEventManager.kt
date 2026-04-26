@@ -31,7 +31,11 @@ object ProxyEventManager : Loggable {
             @Suppress("UNCHECKED_CAST")
             val handler = registered.handler as ProxyEventHandler<T>
 
-            handler.handle(context)
+            try {
+                handler.handle(context)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
             if (context.isCancelled) break
         }

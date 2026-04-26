@@ -1,5 +1,6 @@
 package me.znotchill.lime.packets
 
+import dev.whyoleg.cryptography.bigint.BigInt
 import io.ktor.utils.io.*
 import io.ktor.utils.io.core.*
 import kotlinx.io.Sink
@@ -114,4 +115,32 @@ fun Sink.writeBoolean(value: Boolean) {
 
 fun Source.readBoolean(): Boolean {
     return readByte().toInt() != 0
+}
+
+fun Sink.writeBytes(bytes: List<Byte>) {
+    writeVarInt(bytes.size)
+    bytes.forEach { writeByte(it) }
+}
+
+fun Source.readPrefixedBytes(): List<Byte> {
+    val length = readVarInt()
+    return readByteArray(length).toList()
+}
+
+fun ByteArray.toNotchianHex(): String {
+    val negative = this[0].toInt() and 0x80 != 0
+    val bytes = if (negative) twosComplement() else this
+    val hex = bytes.joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
+    return (if (negative) "-" else "") + hex.trimStart('0')
+}
+
+private fun ByteArray.twosComplement(): ByteArray {
+    val result = this.copyOf()
+    var carry = true
+    for (i in result.indices.reversed()) {
+        val v = (result[i].toInt() and 0xFF).inv() + (if (carry) 1 else 0)
+        result[i] = (v and 0xFF).toByte()
+        carry = v > 0xFF
+    }
+    return result
 }

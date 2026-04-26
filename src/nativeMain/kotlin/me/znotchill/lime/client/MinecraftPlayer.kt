@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.client.connection.ClientConnection
+import me.znotchill.lime.client.handlers.MojangProperty
 import me.znotchill.lime.client.pipeline.SessionPipeline
 import me.znotchill.lime.client.pipeline.SessionSwitcher
 import me.znotchill.lime.components.Component
@@ -44,9 +45,12 @@ class MinecraftPlayer(
     lateinit var pipeline: SessionPipeline
 
     lateinit var handshakePacket: RawPacket
+    lateinit var loginStartPacket: RawPacket
     lateinit var currentServer: Server
 
     val switcher = SessionSwitcher(this)
+
+    var properties: List<MojangProperty> = listOf()
 
     fun getPacketId(packet: Identifiable, stateOverride: ConnectionState? = null): Int {
         val targetState = stateOverride ?: this.state

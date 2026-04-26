@@ -1,6 +1,7 @@
 package me.znotchill.lime.client.pipeline
 
 import io.ktor.network.selector.SelectorManager
+import io.ktor.utils.io.core.remaining
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,9 +21,9 @@ import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.PipeDirection
 import me.znotchill.lime.client.connection.BackendConnection
 import me.znotchill.lime.client.connection.ClientConnection
+import me.znotchill.lime.client.handlers.EncryptionHandler
 import me.znotchill.lime.events.packets.PacketEventManager
 import me.znotchill.lime.events.proxy.ProxyEventManager
-import me.znotchill.lime.events.proxy.registry.PlayerJoinEvent
 import me.znotchill.lime.events.proxy.registry.PlayerQuitEvent
 import me.znotchill.lime.generated.Packet
 import me.znotchill.lime.log.Loggable
@@ -55,6 +56,9 @@ class SessionPipeline(
     var backendReaderScope: CoroutineScope? = null
     var droppingBackendPackets = false
     var phase = ProxyPhase.NORMAL
+
+    var encryptionNonce: ByteArray? = null
+    var awaitingEncryptionResponse = false
 
     fun startClientReader() = scope.launch {
         try {
@@ -159,19 +163,24 @@ class SessionPipeline(
         if (decoder != null) {
             try {
                 val decoded = decoder(packet.data.peek())
-                val isCancelled = PacketEventManager.emit(player, decoded)
+                val isCancelled = PacketEventManager.emit(
+                    player,
+                    decoded,
+                    packet
+                )
                 if (isCancelled) {
 //                    PacketEventManager.log.w("Packet 0x${packet.id.toString(16)} CANCELLED by listener")
                     return true
                 }
             } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
         return false
     }
 
     suspend fun handleClientPacket(player: MinecraftPlayer, packet: RawPacket) {
-//        log.d("[C -> S] State: ${player.state} | ID: 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
+        log.d("[C -> S] State: ${player.state} | ID: 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
 
         if (processPacket(player, packet, PipeDirection.SERVER)) return
 
@@ -186,31 +195,19 @@ class SessionPipeline(
             }
 
             ConnectionState.LOGIN -> {
+                if (awaitingEncryptionResponse) {
+                    val encryptionResponseId = player.getPacketId(Packet.Serverbound.Login.EncryptionBegin, ConnectionState.LOGIN)
+                    if (packet.id == encryptionResponseId) {
+                        EncryptionHandler.handleClientResponse(player, packet)
+                    }
+                    // drop everything else until encryption is done
+                    return
+                }
+
                 if (backend == null) {
                     val loginStart = LoginStartPacket.decode(packet.data.peek())
                     player.username = loginStart.name
-
-                    val response = client.tryAllServers(selector) ?: return
-
-                    val newBackend = BackendConnection(response.socket, scope)
-                    backend = newBackend
-                    player.remoteConnection = newBackend
-                    player.currentServer = response.server
-
-                    player.currentServer.addPlayer(player)
-
-                    startBackendReader(player)
-
-                    player.handshakePacket.let {
-                        newBackend.sendRawPacket(it.id, it.data)
-                    }
-
-                    newBackend.sendRawPacket(packet.id, packet.data.peek())
-
-                    ProxyEventManager.emit(
-                        player,
-                        PlayerJoinEvent()
-                    )
+                    player.uuid = loginStart.uuid
                 } else {
                     backend?.sendRawPacket(packet.id, packet.data)
                 }
@@ -243,22 +240,24 @@ class SessionPipeline(
     }
 
     suspend fun handleBackendPacket(player: MinecraftPlayer, packet: RawPacket) {
-//        val packetName = try { player.getPacketName(packet.id, player.state, PipeDirection.SERVER) }
-//            catch (_: Exception) { "none" }
-//        val backendPacketName = try { player.getPacketName(packet.id, player.backendState, PipeDirection.SERVER) }
-//            catch (_: Exception) { "none" }
-//        log.d("[S -> C] Phase: $phase | State: ${player.state} / $packetName (B: ${player.backendState} / $backendPacketName) | ID: ${packet.id} 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
+        val packetName = try { player.getPacketName(packet.id, player.state, PipeDirection.CLIENT) }
+            catch (_: Exception) { "none" }
+        val backendPacketName = try { player.getPacketName(packet.id, player.backendState, PipeDirection.CLIENT) }
+            catch (_: Exception) { "none" }
+        log.d("[S -> C] Phase: $phase | State: ${player.state} / $packetName (B: ${player.backendState} / $backendPacketName) | ID: ${packet.id} 0x${packet.id.toString(16)} | Size: ${packet.data.remaining}")
         if (processPacket(player, packet, PipeDirection.CLIENT)) return
 
         if (phase == ProxyPhase.SWITCHING) {
             when (player.backendState) {
                 ConnectionState.LOGIN -> {
-                    if (packet.id == player.getPacketId(Packet.Clientbound.Login.Success, ConnectionState.LOGIN)) {
-                        player.backendState = ConnectionState.CONFIGURATION
+                    when (packet.id) {
+                        player.getPacketId(Packet.Clientbound.Login.Success, ConnectionState.LOGIN) -> {
+                            player.backendState = ConnectionState.CONFIGURATION
 
-                        val loginAckId = player.getPacketId(Packet.Serverbound.Login.LoginAcknowledged, ConnectionState.LOGIN)
-                        backend?.sendRawPacket(loginAckId, Buffer())
-                        return
+                            val loginAckId = player.getPacketId(Packet.Serverbound.Login.LoginAcknowledged, ConnectionState.LOGIN)
+                            backend?.sendRawPacket(loginAckId, Buffer())
+                            return
+                        }
                     }
                 }
                 ConnectionState.PLAY -> {
@@ -307,9 +306,19 @@ class SessionPipeline(
         val backend = player.remoteConnection
         val loginSuccessId = player.getPacketId(Packet.Clientbound.Login.Success, ConnectionState.LOGIN)
         val compressionId = player.getPacketId(Packet.Clientbound.Login.Compress, ConnectionState.LOGIN)
+        val encryptionId = player.getPacketId(Packet.Clientbound.Login.EncryptionBegin, ConnectionState.LOGIN)
+        val packetName = try { player.getPacketName(packet.id, player.state, PipeDirection.CLIENT) }
+            catch (_: Exception) { "none" }
+
+        log.d("[handleLogin] packet id: 0x${packet.id.toString(16)} ($packetName) | player state: ${player.state} | backend state: ${player.backendState}")
 
         when (packet.id) {
+            encryptionId -> {
+                EncryptionHandler.handleBackendRequest(player, packet)
+                return
+            }
             compressionId -> {
+                println("enabling compression")
                 val threshold = packet.data.peek().readVarInt()
 
                 client.sendRawPacket(packet.id, packet.data)
@@ -319,13 +328,18 @@ class SessionPipeline(
             }
 
             loginSuccessId -> {
-                client.sendRawPacket(packet.id, packet.data)
+                client.sendRawPacket(packet.id, packet.data, forceUncompressed = true)
                 player.state = ConnectionState.CONFIGURATION
+                player.backendState = ConnectionState.CONFIGURATION
+
+                val loginAckId = player.getPacketId(
+                    Packet.Serverbound.Login.LoginAcknowledged,
+                    ConnectionState.LOGIN
+                )
+                backend?.sendRawPacket(loginAckId, Buffer())
             }
 
-            0x00 -> {
-
-            }
+            0x02 -> {}
 
             else -> client.sendRawPacket(packet.id, packet.data)
         }

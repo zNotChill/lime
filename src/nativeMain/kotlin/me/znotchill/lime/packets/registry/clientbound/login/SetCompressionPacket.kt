@@ -13,14 +13,14 @@ import me.znotchill.lime.packets.writeVarInt
 data class SetCompressionPacket(
     val threshold: Int
 ) : ClientPacket {
-    override val id = Packet.Clientbound.Login.EncryptionBegin
+    override val id = Packet.Clientbound.Login.Compress
     override val state = ConnectionState.LOGIN
 
     companion object {
         fun init() = PacketRegistry.register(
             ConnectionState.LOGIN,
             PipeDirection.CLIENT,
-            Packet.Clientbound.Login.EncryptionBegin,
+            Packet.Clientbound.Login.Compress,
             ::decode
         )
 

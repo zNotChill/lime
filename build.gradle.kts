@@ -36,10 +36,26 @@ kotlin {
             implementation("io.ktor:ktor-server-cio:${ktor_version}")
             implementation("io.ktor:ktor-network:${ktor_version}")
             implementation("io.ktor:ktor-network-tls:${ktor_version}")
+            implementation("io.ktor:ktor-client-core:${ktor_version}")
             implementation("com.akuleshov7:ktoml-core:0.7.1")
             implementation("com.akuleshov7:ktoml-file:0.7.1")
             implementation("co.touchlab:kermit:2.0.4")
             implementation(kotlin("reflect"))
+            implementation("dev.whyoleg.cryptography:cryptography-core:0.6.0")
+            implementation("dev.whyoleg.cryptography:cryptography-provider-optimal:0.6.0")
+        }
+
+        val mingwX64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-winhttp:$ktor_version") }
+        }
+        val linuxX64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-curl:$ktor_version") }
+        }
+        val linuxArm64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-curl:$ktor_version") }
+        }
+        val macosArm64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-darwin:$ktor_version") }
         }
     }
 }

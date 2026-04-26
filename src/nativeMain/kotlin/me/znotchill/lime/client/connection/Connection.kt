@@ -91,6 +91,7 @@ abstract class Connection(
                 out.write(innerBuffer.readByteArray())
             }
 
+            log.d("Sending to client: id=0x${id.toString(16)} compressed=${compressionThreshold != -1}")
             writeChannel.writePacket(out.build())
             writeChannel.flush()
         } catch (e: Exception) {

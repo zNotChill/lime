@@ -2,6 +2,7 @@ package me.znotchill.lime
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Logger
+import dev.whyoleg.cryptography.algorithms.RSA
 import io.ktor.network.selector.*
 import io.ktor.network.sockets.*
 import io.ktor.utils.io.errors.*
@@ -11,17 +12,20 @@ import me.znotchill.lime.addons.LimeAddon
 import me.znotchill.lime.client.MinecraftPlayer
 import me.znotchill.lime.client.connection.ClientConnection
 import me.znotchill.lime.client.pipeline.SessionPipeline
+import me.znotchill.lime.crypt.MojangCrypt
 import me.znotchill.lime.data.DataManager
 import me.znotchill.lime.data.config.ConfigManager
 import me.znotchill.lime.events.DefaultEvents
 import me.znotchill.lime.exceptions.AlreadyExistsException
 import me.znotchill.lime.generated.Protocol
 import me.znotchill.lime.log.LimeLogWriter
+import me.znotchill.lime.packets.registry.clientbound.login.LoginPluginRequestPacket
 import me.znotchill.lime.packets.registry.clientbound.login.SetCompressionPacket
 import me.znotchill.lime.packets.registry.clientbound.play.CommandsPacket
 import me.znotchill.lime.packets.registry.clientbound.play.SystemChatPacket
 import me.znotchill.lime.packets.registry.serverbound.configuration.FinishConfigurationPacket
 import me.znotchill.lime.packets.registry.serverbound.handshake.HandshakePacket
+import me.znotchill.lime.packets.registry.serverbound.login.EncryptionResponsePacket
 import me.znotchill.lime.packets.registry.serverbound.login.LoginStartPacket
 import me.znotchill.lime.packets.registry.serverbound.play.ChatPacket
 import me.znotchill.lime.packets.registry.serverbound.play.CommandPacket
@@ -40,6 +44,7 @@ import kotlin.time.Clock
 
 val json = Json {
     encodeDefaults = true
+    ignoreUnknownKeys = true
 }
 
 open class LimeProxy : LimeAddon(
@@ -60,6 +65,8 @@ open class LimeProxy : LimeAddon(
         var logWriter: LogWriter = LimeLogWriter()
 
         var brand: String = "Lime"
+
+        lateinit var keypair: RSA.PKCS1.KeyPair
     }
 
     val proxyScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -113,6 +120,8 @@ open class LimeProxy : LimeAddon(
     open suspend fun postLoad() {}
 
     suspend fun start() = run {
+        keypair = MojangCrypt.generateKeyPair()
+
         Logger.setLogWriters(logWriter)
         printDefaultHeader()
         val start = Clock.System.now().toEpochMilliseconds()
@@ -170,6 +179,8 @@ open class LimeProxy : LimeAddon(
         TabCompleteRequestPacket.init()
         StatusRequestPacket.init()
         PingRequestPacket.init()
+        EncryptionResponsePacket.init()
+        LoginPluginRequestPacket.init()
 
         SetCompressionPacket.init()
 
